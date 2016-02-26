@@ -1,0 +1,2 @@
+python Project.py --name=Small --root=../Small SfLib.v SfLibExtras.v Model.v
+

@@ -1,0 +1,2 @@
+python Project.py --name=PEDANTIC --root=../PEDANTIC SfLib.v SfLibExtras.v Tactics.v ImpHeap.v AbsState.v AbsStateInstance.v PickElement.v AbsExecute.v Fold.v Simplify.v StateImplication.v Unfold.v merge.v ProgramTactics.v SatSolverDefs.v SatSolverMain.v
+

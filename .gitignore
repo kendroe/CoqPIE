@@ -1,3 +1,6 @@
 *.vo
 *.glob
 *.v.d
+prover.pp
+CoqPIE.log
+*.pyc
