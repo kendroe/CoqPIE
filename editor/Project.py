@@ -747,7 +747,8 @@ class Project:
                     CoqProcess.backTo(d.getProof()[newStep+1].coqCycle)
                     self.currentCoqCycle = d.getProof()[newStep+1].coqCycle
                     print "**** Backup 2 ****"
-                    print d.getProof()[newStep].coqCycle
+                    print newStep
+                    print d.getProof()[newStep+1].coqCycle
                     self.currentStepIndex = newStep
         self.updateUserInterface("Ready")
         self.writeProverFile()
