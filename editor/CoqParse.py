@@ -5239,6 +5239,8 @@ class CoqDefinition(CoqDeclaration):
         return d+x
     def getListRepr(self):
         return ["Definition",self.name,(["params"]+self.implicit_params),(["params"]+self.params),self.returnType,self.body,self.proof]
+    def getProof(self):
+        return self.proof
     @classmethod
     def create(cls,l,tokens):
         return CoqDefinition(tokens,l[1],l[2][1:],l[3][1:],l[4],l[5],l[6])
@@ -5362,12 +5364,10 @@ def parseCoqDefinition(tokens):
         body = None
         pr = []
     elif (len(tokens)>2 and (tokens[0].typ=="period" or tokens[0].typ=="Proof")):
-        if (tokens[0].typ=="Proof"):
+        tokens = tokens[1:]
+        if (tokens[0].typ=="period"):
             tokens = tokens[1:]
         body = None
-        tokens = tokens[1:]
-        if tokens[0].typ=="Proof" and tokens[1].typ=="period":
-            tokens = tokens[2:]
         while len(tokens)>0 and tokens[0].typ!='Qed' and tokens[0].typ!='Abort':
             x = parseCoqLtacExpr(tokens)
             print x[0]
@@ -5772,7 +5772,10 @@ class CoqCoFixpoint(CoqDeclaration):
     def getProof(self):
         return self.proof
     def getCoqSuffix(self,text):
-        return("Qed.")
+        if len(self.proof) > 0:
+            return("Qed.")
+        else:
+            return ""
     def getSegment(self,text):
         l1 = self.tokens[0].line
         c1 = self.tokens[0].column

@@ -4,3 +4,4 @@
 prover.pp
 CoqPIE.log
 *.pyc
+*.swp

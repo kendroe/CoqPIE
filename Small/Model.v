@@ -177,7 +177,7 @@ Theorem mergePredicates: forall e a b c d l,
     valid (And b d) l=true ->
     valid b l=true.
 Proof.
-    intros e a b c d l H.
+    intros e a b c d l.
     eapply validTransitive.
     eapply mergeStep.
         eapply Right. eapply Left. eapply Pick. reflexivity.
@@ -186,4 +186,5 @@ Proof.
 
     intros. eapply and1imply. apply H0.
 Qed.
+
 

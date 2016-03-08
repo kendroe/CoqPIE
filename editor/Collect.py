@@ -37,11 +37,12 @@ def collectData(project, name, definitions, text):
         #print d.tokens[len(d.tokens)-1]
         print "**** Command ****"
         print pp
-        print "**** Result ****"
+        print "**** Done ****"
         #if d.isBad():
         #r = "Bad\n \n^"
         #else:
         r = CoqProcess.commandCycle(pp+"\n")
+        print "**** Result ****"
         print r
         d.result = r
         d.old_result = r
@@ -64,18 +65,23 @@ def collectData(project, name, definitions, text):
                 for t in d.getProof():
                     print "**** Tactic ****"
                     t.full = True
-                    print t
+                    #print t
                     print t.getSegment(text)[0]
-                    print t.getSegment(text)[1]
-                    print "**** Result ****"
+                    #print t.getSegment(text)[1]
+                    print "**** Done ****"
                     r = CoqProcess.commandCycle(t.getSegment(text)[0]+"\n")
+                    print "**** Result ****"
                     print r
+                    print "**** Done ****"
                     t.result = r
                     t.old_result = r
                     tg = CoqLex.tokenize(r)
                     tokens = []
                     for tt in tg:
                         tokens.append(tt)
+                    if errorResult(r):
+                        print "**ERROR CASE "+t.__coqstr__()
+                        t.needsReplay = 4
                     if len(tokens)>6 and tokens[1].value=='focused':
                         t.unfocused = int(tokens[6].value)
                         ugoals = t.unfocused
@@ -106,9 +112,11 @@ def collectData(project, name, definitions, text):
                         #t.subgoals = 0
                 print "**** Suffix ****"
                 print s
-                print "**** Result ****"
+                print "**** Done ****"
                 r = CoqProcess.commandCycle(s+"\n")
+                print "**** Result ****"
                 print r
+                print "**** Done ****"
                 d.qed = r
         #except RuntimeError:
             #print "**** SCRIPT ****"

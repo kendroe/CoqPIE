@@ -1,4 +1,5 @@
-# CoqPIE
+#  CoqPIE
+
 CoqPIE (an IDE for the Coq theorem prover + PEDANTIC)
 
 SETTING UP THE EDITOR FOR YOUR PROJECT
@@ -6,7 +7,8 @@ SETTING UP THE EDITOR FOR YOUR PROJECT
 To get started with CoqPIE, first make sure that you have Coq 8.4pl3 installed.
 This is the only version of Coq for which the CoqPIE editor is known to work.
 Many of the other version have slightly different output formats which the
-editor is not able to handle.
+editor is not able to handle.  Also, this version is only known to work on a
+Mac running Python 2.7.10.
 
 Start by trying out the three included sample projects.  Before you can use the
 editor, you need to initialize the editor' cache.  Execute either the script
