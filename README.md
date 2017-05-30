@@ -13,6 +13,7 @@ compiled on Nov 16 2016 21:7:42 with OCaml 4.03.0
 2) Execute the following
 
 cd PEDANTIC
+
 ./compile
 
 #  CoqPIE
