@@ -5,7 +5,9 @@ To compile the TreeTraversal example.
 1) Make sure Coq 8.5pl3 is in your path
 
 coqc --version
+
 The Coq Proof Assistant, version 8.5pl3 (November 2016)
+
 compiled on Nov 16 2016 21:7:42 with OCaml 4.03.0
 
 2) Execute the following
