@@ -15,15 +15,15 @@
  *
  **********************************************************************************)
 
+Require Import Omega.
 Require Export SfLib.
 Require Export ImpHeap.
 Require Export AbsState.
 Require Export PickElement.
 Require Export AbsStateInstance.
-Opaque unitEval.
 
 (* Glue stuff *)
-Fixpoint no_cell_terms {ev} {eq} {f} {t} {ac} (s : @absState ev eq f t ac) : bool :=
+Fixpoint no_cell_terms (s : absState) : bool :=
     match s with
     | AbsStar a b => if no_cell_terms a then no_cell_terms b else false
     | AbsExists e s => no_cell_terms s
@@ -34,7 +34,7 @@ Fixpoint no_cell_terms {ev} {eq} {f} {t} {ac} (s : @absState ev eq f t ac) : boo
     | _ => true
     end.
 
-Fixpoint no_r_terms {ev} {eq} {f} {t} {ac} (s : @absState ev eq f t ac) : bool :=
+Fixpoint no_r_terms (s : absState) : bool :=
     match s with
     | AbsStar a b => if no_r_terms a then no_r_terms b else false
     | AbsExists e s => no_r_terms s
@@ -45,8 +45,8 @@ Fixpoint no_r_terms {ev} {eq} {f} {t} {ac} (s : @absState ev eq f t ac) : bool :
     | _ => true
     end.
 
-Fixpoint r_term_list {ev} {eq} {f} {t} {ac} (s : @absState ev eq f t ac) : list absState :=
-    match s return list (@absState ev eq f t ac) with
+Fixpoint r_term_list (s : absState) : list absState :=
+    match s return list (absState) with
     | AbsStar a b => (r_term_list a)++(r_term_list b)
     | AbsExists e s => r_term_list s
     | AbsExistsT s => r_term_list s
@@ -56,8 +56,8 @@ Fixpoint r_term_list {ev} {eq} {f} {t} {ac} (s : @absState ev eq f t ac) : list 
     | _ => nil
     end.
 
-Fixpoint predicate_list {ev} {eq} {f} {t} {ac} (s : @absState ev eq f t ac) : list absState :=
-    match s return list (@absState ev eq f t ac) with
+Fixpoint predicate_list(s : absState) : list absState :=
+    match s return list absState with
     | AbsStar a b => (predicate_list a)++(predicate_list b)
     | AbsExists e s => predicate_list s
     | AbsExistsT s => predicate_list s
@@ -67,7 +67,7 @@ Fixpoint predicate_list {ev} {eq} {f} {t} {ac} (s : @absState ev eq f t ac) : li
     | _ => nil
     end.
 
-Fixpoint strip_front_exists {ev} {eq} {f} {t} {ac} (s : @absState ev eq f t ac) : (absState * nat) :=
+Fixpoint strip_front_exists (s : absState) : (absState * nat) :=
     match s with
     | AbsExistsT s => match strip_front_exists s with
                       (st,n) => (st,n+1)
@@ -84,28 +84,33 @@ Fixpoint map_over (l : list (nat * nat)) (v : nat) :=
     | ((x1,x2)::r) => if beq_nat x2 v then x1 else map_over r v
     end.
 
-Fixpoint map_over_exp {ev} {eq} {f} (l : list (nat * nat)) (limit1 : nat) (limit2 : nat) (e : @absExp ev eq f) : absExp :=
-   match e return @absExp ev eq f with
+Fixpoint map_over_exp (l : list (nat * nat)) (limit1 : nat) (limit2 : nat) (e : absExp) : absExp :=
+   match e return absExp with
    | AbsConstVal v => AbsConstVal v
    | AbsVar v => AbsVar v
    | AbsQVar v => AbsQVar (if ble_nat limit2 v then (v+limit1)-limit2 else map_over l v)
    | AbsFun i ll => AbsFun i (map (map_over_exp l limit1 limit2) ll)
    end.
 
-Fixpoint map_over_state {ev} {eq} {f} {t} {ac} (l : list (nat * nat)) (limit1 : nat) (limit2 : nat) (s : @absState ev eq f t ac) : absState :=
-   match s return @absState ev eq f t ac with
+Fixpoint map_over_state (l : list (nat * nat)) (limit1 : nat) (limit2 : nat) (s : absState) : absState :=
+   match s return absState with
     | AbsStar s1 s2 => (AbsStar (map_over_state l limit1 limit2 s1) (map_over_state l limit1 limit2 s2))
     | AbsOrStar s1 s2 => (AbsOrStar (map_over_state l limit1 limit2 s1) (map_over_state l limit1 limit2 s2))
-    | AbsExists e s => AbsExists (map_over_exp l limit1 limit2 e) (map_over_state l limit1 limit2 s)
-    | AbsExistsT s => AbsExistsT (map_over_state l limit1 limit2 s)
-    | AbsAll e s => AbsAll (map_over_exp l limit1 limit2 e) (map_over_state l limit1 limit2 s)
-    | AbsEach e s => AbsEach (map_over_exp l limit1 limit2 e) (map_over_state l limit1 limit2 s)
+    | AbsExists e s => AbsExists (map_over_exp l limit1 limit2 e) (map_over_state (push_pairs l) (S limit1) (S limit2) s)
+    | AbsExistsT s => AbsExistsT (map_over_state (push_pairs l) (S limit1) (S limit2) s)
+    | AbsAll e s => AbsAll (map_over_exp l limit1 limit2 e) (map_over_state (push_pairs l) (S limit1) (S limit2) s)
+    | AbsEach e s => AbsEach (map_over_exp l limit1 limit2 e) (map_over_state (push_pairs l) (S limit1) (S limit2) s)
     | AbsEmpty => AbsEmpty
+    | AbsNone => AbsNone
+    | AbsAny => AbsAny
     | AbsLeaf i ll => AbsLeaf i (map (map_over_exp l limit1 limit2) ll)
-    | AbsAccumulate i e1 e2 e3 => AbsAccumulate i (map_over_exp l limit1 limit2 e1) (map_over_exp l limit1 limit2 e2) (map_over_exp l limit1 limit2 e3)
+    | AbsAccumulate i e1 e2 e3 => AbsAccumulate i (map_over_exp l limit1 limit2 e1) (map_over_exp (push_pairs l) (S limit1) (S limit2) e2) (map_over_exp l limit1 limit2 e3)
     | AbsMagicWand s1 s2 => AbsMagicWand (map_over_state l limit1 limit2 s1) (map_over_state l limit1 limit2 s2)
     | AbsUpdateVar s i e => AbsUpdateVar (map_over_state l limit1 limit2 s) i (map_over_exp l limit1 limit2 e)
+    | AbsUpdateWithLoc s i e => AbsUpdateWithLoc (map_over_state l limit1 limit2 s) i (map_over_exp l limit1 limit2 e)
+    | AbsUpdateLoc s i e => AbsUpdateLoc (map_over_state l limit1 limit2 s) (map_over_exp l limit1 limit2 i) (map_over_exp l limit1 limit2 e)
     | AbsUpdState s1 s2 s3 => AbsUpdState (map_over_state l limit1 limit2 s1) (map_over_state l limit1 limit2 s2) (map_over_state l limit1 limit2 s3)
+    | AbsClosure s ll => AbsClosure s (map (map_over_exp l limit1 limit2) ll)
    end.
 
 Fixpoint mem1 (x : nat) (m : list (nat * nat)) :=
@@ -120,44 +125,61 @@ Fixpoint mem2 (x : nat) (m : list (nat * nat)) :=
     | ((a,b)::r) => if beq_nat b x then true else mem2 x r
     end.
 
-Fixpoint complete_mapping1 {ev} {eq} {f} {t} {ac} (x1 : nat) (l1 : nat) (l2 : nat) (s2 : @absState ev eq f t ac) (m : list (nat * nat)) :=
+Fixpoint complete_mapping1 (x1 : nat) (l1 : nat) (l2 : nat) (s2 : absState) (m : list (nat * nat)) :=
     match x1 with
     | 0 => (m,l1,l2,s2)
     | S x1' => if mem1 x1' m then complete_mapping1 x1' l1 l2 s2 m
                else complete_mapping1 x1' l1 (l2+1) (addStateVar l2 s2) ((x1',l2)::m)
     end.
 
-Fixpoint complete_mapping2 {ev} {eq} {f} {t} {ac} (x2 : nat) (l1 : nat) (l2 : nat) (s1 : @absState ev eq f t ac) (m : list (nat * nat)) :=
+Fixpoint complete_mapping2 (x2 : nat) (l1 : nat) (l2 : nat) (s1 : absState) (m : list (nat * nat)) :=
     match x2 with
     | 0 => (m,l1,l2,s1)
     | S x2' => if mem2 x2' m then complete_mapping2 x2' l1 l2 s1 m
                else complete_mapping2 x2' (l1+1) l2 (addStateVar l1 s1) ((l1,x2')::m)
     end.
 
-Fixpoint complete_mapping {ev} {eq} {f} {t} {ac} (l1 : nat) (l2 : nat) (m : list (nat * nat))
-                          (s1 : @absState ev eq f t ac) (s2 : @absState ev eq f t ac) :=
+Fixpoint complete_mapping (l1 : nat) (l2 : nat) (m : list (nat * nat))
+                          (s1 : absState) (s2 : absState) :=
     match complete_mapping1 l1 l1 l2 s2 m with
     | (m',l1',l2',s2') => match complete_mapping2 l2' l1' l2' s1 m' with
                           | (m'',l1'',l2'',s1'') => (m'',l1'',l2'',s1'',s2')
                           end
     end.
 
-Fixpoint prove_state_implication {ev} {eq} {f} {t} {ac} (tl : nat) (s1: @absState ev eq f t ac) (s2 : @absState ev eq f t ac) (e : env) (h : heap) : Prop :=
+Fixpoint prove_state_implication (tl : nat) (s1: absState) (s2 : absState) (e : env) (h : heap) : Prop :=
     match tl return Prop with
     | 0 => realizeState s1 nil (e,h) -> realizeState s2 nil (e,empty_heap)
     | S n => exists x, prove_state_implication n (instantiateState s1 x) (instantiateState s2 x) e h
+    end.
+
+Fixpoint incrementLeft (pairs : list (nat * nat)) :=
+    match pairs with
+    | ((a,b)::c) => ((S a),b)::(incrementLeft c)
+    | nil => nil
+    end.
+
+Fixpoint incrementRight (pairs : list (nat * nat)) :=
+    match pairs with
+    | ((a,b)::c) => (a,(S b))::(incrementLeft c)
+    | nil => nil
     end.
 
 (*
  * This top level definition is responsible for proving implications.  It works by first pairing off
  * identical components and then setting up a proof goal for the remainder.
  *)
-Inductive prove_implication {ev} {eq} {f} {t} {ac} : list (nat * nat) -> @absState ev eq f t ac -> nat -> @absState ev eq f t ac -> nat -> list (nat * nat) -> @absState ev eq f t ac -> Prop :=
+Inductive prove_implication : list (nat * nat) -> absState -> nat -> absState -> nat -> list (nat * nat) -> absState -> Prop :=
     | CILPairR : forall s1 s2 s1' s2' l1 l2 vars vars' vars'' limit1 limit2 tl,
-               Some (s1',s2',l1,l2,vars') = pick2RsNiF s1 s2 vars limit1 limit2 (@nil (list (@absExp ev eq f))) (@nil (list (@absExp ev eq f))) ->
-               (*pick2RsNi s1 s2 vars limit1 limit2 (@nil (list (@absExp ev eq f))) (@nil (list (@absExp ev eq f))) l1 l2 s1' s2' vars' ->*)
+               Some (s1',s2',l1,l2,vars') = pick2RsNiF s1 s2 vars limit1 limit2 (@nil (list absExp)) (@nil (list absExp)) ->
+               (*pick2RsNi s1 s2 vars limit1 limit2 (@nil (list absExp)) (@nil (list absExp )) l1 l2 s1' s2' vars' ->*)
                prove_implication vars' s1' limit1 s2' limit2 vars'' tl ->
                prove_implication vars s1 limit1 s2 limit2 vars'' tl
+    | CILPairUpdateWithLoc : forall s1 s2 s1' s2' i1 i2 s1'' s2'' l1 l2 vars vars' vars'' limit1 limit2 tl tl' vars''',
+               Some (s1',s2',(AbsUpdateWithLoc s1'' i1 l1),(AbsUpdateWithLoc s2'' i2 l2),vars') = pick2UpdateWithLocsNiF s1 s2 vars limit1 limit2 (@nil (list absExp)) (@nil (list absExp)) ->
+               prove_implication vars' s1' limit1 s2' limit2 vars'' tl ->
+               prove_implication vars'' s1'' limit1 s2'' limit2 vars''' tl' ->
+               prove_implication vars s1 limit1 s2 limit2 vars''' (tl ** (AbsUpdateWithLoc tl' i1 l1))
     (*| CILPairCell : forall s1 s2 s1' s2' loc1 loc2 val1 val2 vars vars' vars'' limit1 limit2 tl,
                pick2Cells s1 s2 vars limit1 limit2 nil nil loc1 loc2 val1 val2 s1' s2' vars' ->
                prove_implication vars' s1' limit1 s2' limit2 vars'' tl ->
@@ -166,25 +188,37 @@ Inductive prove_implication {ev} {eq} {f} {t} {ac} : list (nat * nat) -> @absSta
                   prove_implication vars s1 limit1 s2 limit2 vars s1.
 
 Ltac prove_implication := (eapply CILPairR;[solve [compute;reflexivity] | prove_implication]) ||
+                          (eapply CILPairUpdateWithLoc;[solve [compute;reflexivity] | prove_implication | prove_implication]) ||
                           (eapply CILFinish;simpl;reflexivity).
+
+Function  stripUpdateWithLocs (s : absState) :=
+    match s with
+    | AbsUpdateWithLoc ss i v => match substVarState (addStateVar 0 (stripUpdateWithLocs ss)) i v(0) with
+                                 | Some x => (AbsExistsT x)
+                                 | _ => AbsUpdateWithLoc ss i v
+                                 end
+    | (a ** b) => ((stripUpdateWithLocs a) ** (stripUpdateWithLocs b))
+    | AbsUpdateVar ss i v => AbsUpdateVar (stripUpdateWithLocs ss) i v
+    | x => x
+    end.
 
 (*
  * The top level state implication theorem.  One state implies another if we
  * can first pair off many of the identical components and then prove that
  * the first state implies the remaining components.
  *)
-Theorem stateImplication {ev} {eq} {f} {t} {ac} : forall s state1 (state2 : @absState ev eq f t ac) state1' tl1 tl2 state2' state2'' vars mx l1x l2x state1x state2x state2x',
-    realizeState state1 nil s ->
+Theorem stateImplication : forall s state1 (state2 : absState) state1' tl1 tl2 state2' state2'' vars mx l1x l2x state1x state2x state2x' bb,
+    realizeState state1 bb s ->
     (state1',tl1) = remove_top_existentials state1 ->
     (state2',tl2) = remove_top_existentials state2 ->
     prove_implication nil state2' tl2 state1' tl1 vars state2'' ->
     (mx,l2x,l1x,state2x,state1x) = complete_mapping tl2 tl1 vars state2'' state1' ->
     state2x' = map_over_state mx l1x l2x state2x ->
-    (forall e h b, length b=l1x-> realizeState state1x b (e,h) -> realizeState state2x' b (e,empty_heap)) ->
-    realizeState state2 nil s.
-Proof. admit. Qed.
+    (forall e h b, length b=l1x-> (realizeState state1x (bb++b) (e,h)) -> (exists bbb, realizeState (stripUpdateWithLocs state2x') (bb++bbb) (e,empty_heap))) ->
+    realizeState state2 bb s.
+Proof. admit. Admitted.
 
-Definition basicStateImplication := @stateImplication unit eq_unit unitEval basicState basicAccumulate.
+Definition basicStateImplication := stateImplication.
 
 (*
  * The tactics below are all useful in applying the stateImplication
@@ -260,7 +294,7 @@ Ltac reduceHyp :=
     | [H: absEval (AbsEqual _ _) _ (NatValue 1) |- _] => inversion H; subst; clear H*)
     | [H: context [instantiateState _ _] |- _ ] => compute in H
     | [H: exists _, _ |- _] => inversion H; subst; clear H
-    | [H: context [(match env_p (id->option nat) ?X ?Y ?Z with | Some _ => _ | None => _ end)] |- _] => let xx:=fresh in remember (env_p (id->option nat) X Y Z) as xx; destruct xx; compute in H
+    | [H: context [(match env_p ?Y ?Z with | Some _ => _ | None => _ end)] |- _] => let xx:=fresh in remember (env_p Y Z) as xx; destruct xx; compute in H
     (*| [H: context [btnat _] |- _] => unfold btnat in H*)
     | [H: context [basicEval _ _] |- _] => unfold basicEval in H
     (*| [H: context [AbsEqualId] |- _] => unfold AbsEqualId in H*)
@@ -292,8 +326,8 @@ Ltac simplifyEval :=
      match goal with
      | [H: Some _ = ?e ?v |- context [?e ?v]] => rewrite <- H;simpl;try simplifyEval
      | [H: ?e ?v = Some _ |- context [?e ?v]] => rewrite H;simpl;try simplifyEval
-     | [ |- context [env_p _ _ _ _]] => unfold env_p;simpl;try simplifyEval
-     | [ |- context [env_p _ _ _]] => unfold env_p;simpl;try simplifyEval
+     | [ |- context [env_p _ _]] => unfold env_p;simpl;try simplifyEval
+     | [ |- context [env_p _]] => unfold env_p;simpl;try simplifyEval
      (*| [ |- context [btnat _]] => unfold btnat*)
      | [ |- _ = _] => reflexivity
      (*| [ |- context [AbsEqualId] ] => unfold AbsEqualId; simpl; try simplifyEval
@@ -331,7 +365,7 @@ Ltac decomposeTheState :=
 (*
  * The following definition is used to simplify the reduction of realizeState
  *)
-Fixpoint destructState {ev} {eq} {f} {t} {ac} (a : @absState ev eq f t ac) (bindings : list (@Value ev)) (s : state) : Prop :=
+Fixpoint destructState (a : absState) (bindings : list (@Value unit)) (s : state) : Prop :=
     match a with
     | AbsStar as1 as2 => exists h1 h2,
                          (destructState as1 bindings (fst s,h1) /\
@@ -340,39 +374,44 @@ Fixpoint destructState {ev} {eq} {f} {t} {ac} (a : @absState ev eq f t ac) (bind
                           compose_heaps h1 h2=(snd s))
     | AbsOrStar as1 as2 => (destructState as1 bindings s) \/ (destructState as2 bindings s)
     | AbsExists e a => forall  e rl,
-                       @absEval ev eq f (env_p _ _ s) bindings e = (ListValue rl) ->
+                       absEval (env_p s) bindings e = (ListValue rl) ->
                        (exists x, In x rl /\
                            destructState a (bindings++(x::nil)) s)
     | AbsExistsT a => (exists x, destructState a (bindings++(x::nil)) s)
     | AbsAccumulate i e1 e2 e3 => forall v3 vl,
-                    absEval (env_p env heap s) bindings e1 = (ListValue vl) ->
-                    absEval (env_p env heap s) bindings e3 = v3 ->
-                    ac i (env_p _ _ s) bindings vl e2 v3
+                    absEval (env_p s) bindings e1 = (ListValue vl) ->
+                    absEval (env_p s) bindings e3 = v3 ->
+                    basicAccumulate i (env_p s) bindings vl e2 v3
     | AbsAll e a => forall rl,
-                    absEval (env_p _ _ s) bindings e = ListValue rl ->
+                    absEval (env_p s) bindings e = ListValue rl ->
                     (forall x, In x rl ->
                                destructState a (bindings++(x::nil)) s)
     | AbsEach e a => forall v rl states l,
-                     absEval (env_p _ _ s) bindings e = v ->
+                     absEval (env_p s) bindings e = v ->
                      v = ListValue rl ->
                      allFirsts rl l ->
                      allSeconds states l ->
                      (forall x y, In (x,y) l -> destructState a (bindings++(x::nil)) y) ->
                      fold_compose states s
     | AbsEmpty => (forall x, snd s x=None)
-    | AbsLeaf i el => t i (map (absEval (env_p _ _ s) bindings) el) (snd s)
+    | AbsAny => True
+    | AbsNone => False
+    | AbsLeaf i el => basicState i (map (absEval (env_p s) bindings) el) (snd s)
     | AbsMagicWand as1 as2 => exists h1 h2,
                             (destructState as1 bindings (fst s,h1) /\
                              destructState as2 bindings (fst s,h2) /\
                              (forall v, ~(h1 v=None) \/ h2 v=None) /\
                              compose_heaps h2 (snd s)=h1)
     | AbsUpdateVar ss i e => destructState ss bindings s
+    | AbsUpdateWithLoc ss i e => destructState ss bindings s
+    | AbsUpdateLoc ss i e => destructState ss bindings s
     | AbsUpdState s1 s2 s3 => destructState s1 bindings s
+    | AbsClosure ss el => destructState ss (map (absEval (env_p s) bindings) el) (empty_env,heap_p s)
     end.
 
-Theorem realizeDestructThm {ev} {eq} {f} {t} {ac} : forall s b st,
-    @realizeState ev eq f t ac s b st -> destructState s b st.
-Proof. admit. Qed.
+Theorem realizeDestructThm : forall s b st,
+    @realizeState s b st -> destructState s b st.
+Proof. admit. Admitted.
 
 Ltac removeExistentials :=
     repeat (match goal with
@@ -380,37 +419,37 @@ Ltac removeExistentials :=
      | [ H: exists _, _ |- _ ] => (inversion H;subst;clear H)
      end).
 
-Theorem pickAssertion {ev} {eq} {f} {t} {ac} : forall fs s e P P' bind bind2 x,
-    @realizeState ev eq f t ac P bind s ->
+Theorem pickAssertion : forall fs s e P P' bind bind2 x,
+    realizeState P bind s ->
     spickElement P ([e]) P' ->
     fst s = fs ->
     x<>0 ->
     noQVarExp e=true ->
     absEval fs bind2 e = NatValue x.
-Proof. admit. Qed.
+Proof. admit. Admitted.
 
-Theorem pickTerm {ev} {eq} {f} {t} {ac} : forall P bind s fs e P',
-    @realizeState ev eq f t ac P bind s ->
+Theorem pickTerm : forall P bind s fs e P',
+    realizeState P bind s ->
     spickElement P e P' ->
     allPredicates e ->
     fst s = fs ->
-    @realizeState ev eq f t ac e bind (fs,empty_heap).
-Proof. admit. Qed.
+    realizeState e bind (fs,empty_heap).
+Proof. admit. Admitted.
 
 Ltac solvePickTerm X := eapply pickTerm;[apply X | solveSPickElement | solveAllPredicates | simpl; reflexivity].
 
-Theorem pickData {ev} {eq} {f} {t} {ac} : forall P bind s fs e P',
-    @realizeState ev eq f t ac P bind s ->
+Theorem pickData : forall P bind s fs e P',
+    realizeState P bind s ->
     spickElement P e P' ->
     fst s = fs ->
-    (exists h, @realizeState ev eq f t ac e bind (fs,h)).
-Proof. admit. Qed.
+    (exists h, realizeState e bind (fs,h)).
+Proof. admit. Admitted.
 
 Ltac solvePickData X := eapply pickData;[apply X | solveSPickElement | simpl; reflexivity].
 
 Theorem concreteComposeEmpty : forall s1 s2 eee,
     concreteCompose s1 s2 (eee, empty_heap) <-> s1=(eee, empty_heap) /\ s2=(eee, empty_heap).
-Proof. admit. Qed.
+Proof. admit. Admitted.
 
 Theorem nth_replace_same {t} : forall l m n (vv:t) x, m=n -> n < length l -> nth m (replacenth l n vv) x=vv.
         Proof.
@@ -436,7 +475,7 @@ Definition validPredicate {ev} (p : @Value ev) :=
     | _ => false
     end.
 
-Fixpoint replaceExp {ev} {eq} {f} (e : @absExp ev eq f ) (val:@absExp ev eq f) (rep:@absExp ev eq f) : @absExp ev eq f :=
+Fixpoint replaceExp (e : absExp ) (val: absExp) (rep:absExp) : absExp :=
    if beq_absExp e val then rep
    else
    match e with
@@ -446,7 +485,7 @@ Fixpoint replaceExp {ev} {eq} {f} (e : @absExp ev eq f ) (val:@absExp ev eq f) (
    | AbsFun i l => AbsFun i (map (fun x => replaceExp x val rep) l)
    end.
 
-Fixpoint replaceState {ev} {eq} {f} {t} {ac} (s : @absState ev eq f t ac) (val:@absExp ev eq f) (rep:@absExp ev eq f) : @absState ev eq f t ac :=
+Fixpoint replaceState (s : absState) (val: absExp) (rep: absExp) : absState :=
    match s with
     | AbsStar s1 s2 => (AbsStar (replaceState s1 val rep) (replaceState s2 val rep))
     | AbsOrStar s1 s2 => (AbsOrStar (replaceState s1 val rep) (replaceState s2 val rep))
@@ -455,11 +494,16 @@ Fixpoint replaceState {ev} {eq} {f} {t} {ac} (s : @absState ev eq f t ac) (val:@
     | AbsAll e s => AbsAll (replaceExp e val rep) (replaceState s val rep)
     | AbsEach e s => AbsEach (replaceExp e val rep) (replaceState s val rep)
     | AbsEmpty => AbsEmpty
+    | AbsNone => AbsNone
+    | AbsAny => AbsAny
     | AbsLeaf i l => AbsLeaf i (map (fun x => replaceExp x val rep) l)
     | AbsAccumulate id e1 e2 e3 => AbsAccumulate id (replaceExp e1 val rep) (replaceExp e2 val rep) (replaceExp e3 val rep)
     | AbsMagicWand s1 s2 => AbsMagicWand (replaceState s1 val rep) (replaceState s2 val rep)
     | AbsUpdateVar s i v => AbsUpdateVar (replaceState s val rep) i (replaceExp v val rep)
-    | AbsUpdState s1 s2 s3 => AbsUpdState (replaceState s1 val rep) (replaceState s2 val rep) (replaceState s3 val rep)
+    | AbsUpdateWithLoc s i v => AbsUpdateWithLoc (replaceState s val rep) i (replaceExp v val rep)
+    | AbsUpdateLoc s i v => AbsUpdateLoc (replaceState s val rep) (replaceExp i val rep) (replaceExp v val rep)
+     | AbsUpdState s1 s2 s3 => AbsUpdState (replaceState s1 val rep) (replaceState s2 val rep) (replaceState s3 val rep)
+    | AbsClosure s l => AbsClosure s (map (fun x => replaceExp x val rep) l)
    end.
 
 Fixpoint pair_check {a} (f : a -> a -> bool) (l1 : list a) (l2 : list a) :=
@@ -469,7 +513,7 @@ Fixpoint pair_check {a} (f : a -> a -> bool) (l1 : list a) (l2 : list a) :=
     | _,_ => false
     end.
 
-Fixpoint equivExp {ev} {eq} {f} (e1 : @absExp ev eq f ) (e2 : @absExp ev eq f) (val:@absExp ev eq f) (rep:@absExp ev eq f) : bool :=
+Fixpoint equivExp (e1 : absExp) (e2 : absExp) (val:absExp) (rep:absExp) : bool :=
    if beq_absExp e1 e2 then true
    else if beq_absExp e1 val && beq_absExp e2 rep then true
    else if beq_absExp e1 rep && beq_absExp e2 val then true
@@ -486,7 +530,7 @@ Fixpoint equivExp {ev} {eq} {f} (e1 : @absExp ev eq f ) (e2 : @absExp ev eq f) (
    | _,_ => false
    end.
 
-Fixpoint equivState {ev} {eq} {f} {t} {ac} (s1 : @absState ev eq f t ac) (s2 : @absState ev eq f t ac) (val:@absExp ev eq f) (rep:@absExp ev eq f) : bool :=
+Fixpoint equivState (s1 : absState) (s2 : absState) (val: absExp) (rep: absExp) : bool :=
    match s1,s2 with
     | AbsStar s1a s1b,AbsStar s2a s2b => (equivState s1a s2a val rep) && (equivState s1b s2b val rep)
     | AbsOrStar s1a s1b,AbsOrStar s2a s2b => (equivState s1a s2a val rep) && (equivState s1b s2b val rep)
@@ -509,7 +553,7 @@ Fixpoint equivState {ev} {eq} {f} {t} {ac} (s1 : @absState ev eq f t ac) (s2 : @
     | _, _ => false
    end.
 
-Fixpoint maxBindingExp {ev} {eq} {f} (e : @absExp ev eq f ) : nat :=
+Fixpoint maxBindingExp (e : absExp ) : nat :=
    match e with
    | AbsConstVal x => 0
    | AbsVar v => 0
@@ -523,196 +567,196 @@ Fixpoint clipBinding {ev} (b : list (@Value ev)) (n : nat) :=
     | _,_ => nil
     end.
 
-Theorem expressionSubLR {ev} {eq} {f} {t} {ac} : forall b b' b'' p st e h exp1 exp2 p',
-    @realizeState ev eq f t ac ([p]) b st ->
-    validPredicate (@absEval ev eq f e b'' (exp1====exp2))=true ->
+Theorem expressionSubLR : forall b b' b'' p st e h exp1 exp2 p',
+    realizeState ([p]) b st ->
+    validPredicate (absEval e b'' (exp1====exp2))=true ->
     b' = clipBinding b (maxBindingExp (exp1====exp2)) ->
     b' = clipBinding b'' (maxBindingExp (exp1====exp2)) ->
     st = (e,h) ->
     p' = replaceExp p exp1 exp2 ->
-    @realizeState ev eq f t ac ([p']) b st.
-Proof. admit. Qed.
+    realizeState ([p']) b st.
+Proof. admit. Admitted.
 
-Theorem expressionNotEqualZero1 {ev} {eq} {f} {t} {ac} : forall b b' b'' p st e h exp p',
-    @realizeState ev eq f t ac (p) b st ->
-    false=validPredicate (@absEval ev eq f e b'' (#0====exp)) ->
+Theorem expressionNotEqualZero1 : forall b b' b'' p st e h exp p',
+    realizeState (p) b st ->
+    false=validPredicate (absEval e b'' (#0====exp)) ->
     b' = clipBinding b (maxBindingExp (exp)) ->
     b' = clipBinding b'' (maxBindingExp (exp)) ->
     st = (e,h) ->
     p' = replaceState p ((#0) <<<< exp) (#1) ->
-    @realizeState ev eq f t ac (p') b st.
-Proof. admit. Qed.
+    realizeState (p') b st.
+Proof. admit. Admitted.
 
-Theorem expressionNotEqualZero2 {ev} {eq} {f} {t} {ac} : forall b b' b'' p st e h exp p',
-    @realizeState ev eq f t ac (p) b st ->
-    false=validPredicate (@absEval ev eq f e b'' (#0====exp)) ->
+Theorem expressionNotEqualZero2 : forall b b' b'' p st e h exp p',
+    realizeState (p) b st ->
+    false=validPredicate (absEval e b'' (#0====exp)) ->
     b' = clipBinding b (maxBindingExp (exp)) ->
     b' = clipBinding b'' (maxBindingExp (exp)) ->
     st = (e,h) ->
     p' = replaceState p ((#0) ==== exp) (#0) ->
-    @realizeState ev eq f t ac (p') b st.
-Proof. admit. Qed.
+    realizeState (p') b st.
+Proof. admit. Admitted.
 
-Theorem expressionNotEqualZero3 {ev} {eq} {f} {t} {ac} : forall b b' b'' p st e h exp p',
-    @realizeState ev eq f t ac (p) b st ->
-    false=validPredicate (@absEval ev eq f e b'' (#0====exp)) ->
+Theorem expressionNotEqualZero3 : forall b b' b'' p st e h exp p',
+    realizeState (p) b st ->
+    false=validPredicate (absEval e b'' (#0====exp)) ->
     b' = clipBinding b (maxBindingExp (exp)) ->
     b' = clipBinding b'' (maxBindingExp (exp)) ->
     st = (e,h) ->
     p' = replaceState p (exp ==== (#0)) (#0) ->
-    @realizeState ev eq f t ac (p') b st.
-Proof. admit. Qed.
+    realizeState (p') b st.
+Proof. admit. Admitted.
 
-Theorem expressionSubRL {ev} {eq} {f} {t} {ac} : forall b b' b'' p st e h exp1 exp2 p',
-    @realizeState ev eq f t ac (p) b st ->
-    validPredicate (@absEval ev eq f e b'' (exp1====exp2))=true ->
+Theorem expressionSubRL : forall b b' b'' p st e h exp1 exp2 p',
+    realizeState (p) b st ->
+    validPredicate (absEval e b'' (exp1====exp2))=true ->
     b' = clipBinding b (maxBindingExp (exp1====exp2)) ->
     b' = clipBinding b'' (maxBindingExp (exp1====exp2)) ->
     st = (e,h) ->
     p' = replaceState p exp2 exp1 ->
-    @realizeState ev eq f t ac (p') b st.
-Proof. admit. Qed.
+    realizeState (p') b st.
+Proof. admit. Admitted.
 
-Theorem expressionSubRSLR {ev} {eq} {f} {t} {ac} : forall b b' b'' p st exp1 exp2 p',
-    @realizeState ev eq f t ac ([exp1====exp2]) b'' st ->
-    @realizeState ev eq f t ac (p) b st ->
+Theorem expressionSubRSLR : forall b b' b'' p st exp1 exp2 p',
+    realizeState ([exp1====exp2]) b'' st ->
+    realizeState (p) b st ->
     b' = clipBinding b (maxBindingExp (exp1====exp2)) ->
     b' = clipBinding b'' (maxBindingExp (exp1====exp2)) ->
     p' = replaceState p exp1 exp2 ->
-    @realizeState ev eq f t ac (p') b st.
-Proof. admit. Qed.
+    realizeState (p') b st.
+Proof. admit. Admitted.
 
-Theorem expressionSubRSNeg {ev} {eq} {f} {t} {ac} : forall b b' b'' p st exp1 p',
-    @realizeState ev eq f t ac ([~~exp1]) b'' st ->
-    @realizeState ev eq f t ac (p) b st ->
+Theorem expressionSubRSNeg : forall b b' b'' p st exp1 p',
+    realizeState ([~~exp1]) b'' st ->
+    realizeState (p) b st ->
     b' = clipBinding b (maxBindingExp (exp1)) ->
     b' = clipBinding b'' (maxBindingExp (exp1)) ->
     p' = replaceState p exp1 (#0) ->
-    @realizeState ev eq f t ac (p') b st.
-Proof. admit. Qed.
+    realizeState (p') b st.
+Proof. admit. Admitted.
 
-Theorem expressionSubRSRL {ev} {eq} {f} {t} {ac} : forall b b' b'' p st exp1 exp2 p',
-    @realizeState ev eq f t ac ([exp1====exp2]) b'' st ->
-    @realizeState ev eq f t ac (p) b st ->
+Theorem expressionSubRSRL : forall b b' b'' p st exp1 exp2 p',
+    realizeState ([exp1====exp2]) b'' st ->
+    realizeState (p) b st ->
     b' = clipBinding b (maxBindingExp (exp1====exp2)) ->
     b' = clipBinding b'' (maxBindingExp (exp1====exp2)) ->
     p' = replaceState p exp2 exp1 ->
-    @realizeState ev eq f t ac (p') b st.
-Proof. admit. Qed.
+    realizeState (p') b st.
+Proof. admit. Admitted.
 
-Theorem expressionSubEval {ev} {eq} {f} {t} {ac} : forall b b' b'' p st exp val p' e,
-    @NatValue ev val = @absEval ev eq f e b' exp ->
-    @realizeState ev eq f t ac (p) b'' st ->
+Theorem expressionSubEval : forall b b' b'' p st exp val p' e,
+    @NatValue unit val = absEval e b' exp ->
+    realizeState (p) b'' st ->
     e = (fst st) ->
     p' = replaceState p  exp (#val) ->
     b = clipBinding b' (maxBindingExp exp) ->
     b = clipBinding b'' (maxBindingExp exp) ->
-    @realizeState ev eq f t ac (p') b'' st.
-Proof. admit. Qed.
+    realizeState (p') b'' st.
+Proof. admit. Admitted.
 
-Theorem expressionSubEvalEval {ev} {eq} {f} {t} {ac} : forall b p st exp1 exp2 p' e,
-    @absEval ev eq f e b exp2 = @absEval ev eq f e b exp1 ->
-    @realizeState ev eq f t ac (p) b st ->
+Theorem expressionSubEvalEval : forall b p st exp1 exp2 p' e,
+    absEval e b exp2 = absEval e b exp1 ->
+    realizeState (p) b st ->
     e = (fst st) ->
     p' = replaceState p  exp1 exp2 ->
-    @realizeState ev eq f t ac (p') b st.
-Proof. admit. Qed.
+    realizeState (p') b st.
+Proof. admit. Admitted.
 
-Theorem expressionSubGRSLR {ev} {eq} {f} {t} {ac} : forall b b' b'' p st exp1 exp2 p',
-    @realizeState ev eq f t ac ([exp1====exp2]) b'' st ->
+Theorem expressionSubGRSLR : forall b b' b'' p st exp1 exp2 p',
+    realizeState ([exp1====exp2]) b'' st ->
     b' = clipBinding b (maxBindingExp (exp1====exp2)) ->
     b' = clipBinding b'' (maxBindingExp (exp1====exp2)) ->
     p' = replaceExp p exp1 exp2 ->
-    @realizeState ev eq f t ac ([p']) b st ->
-    @realizeState ev eq f t ac ([p]) b st.
-Proof. admit. Qed.
+    realizeState ([p']) b st ->
+    realizeState ([p]) b st.
+Proof. admit. Admitted.
 
-Theorem expressionSubGRSRL {ev} {eq} {f} {t} {ac} : forall b b' b'' p st exp1 exp2 p',
-    @realizeState ev eq f t ac ([exp1====exp2]) b'' st ->
+Theorem expressionSubGRSRL : forall b b' b'' p st exp1 exp2 p',
+    realizeState ([exp1====exp2]) b'' st ->
     b' = clipBinding b (maxBindingExp (exp1====exp2)) ->
     b' = clipBinding b'' (maxBindingExp (exp1====exp2)) ->
     p' = replaceExp p exp2 exp1 ->
-    @realizeState ev eq f t ac ([p']) b st ->
-    @realizeState ev eq f t ac ([p]) b st.
-Proof. admit. Qed.
+    realizeState ([p']) b st ->
+    realizeState ([p]) b st.
+Proof. admit. Admitted.
 
-Theorem expressionSubGLR {ev} {eq} {f} {t} {ac} : forall b b' e b'' p st exp1 exp2 p',
-    validPredicate (@absEval ev eq f e b'' (exp1====exp2))=true ->
+Theorem expressionSubGLR : forall b b' e b'' p st exp1 exp2 p',
+    validPredicate (absEval e b'' (exp1====exp2))=true ->
     e = (fst st) ->
     b' = clipBinding b (maxBindingExp (exp1====exp2)) ->
     b' = clipBinding b'' (maxBindingExp (exp1====exp2)) ->
     p' = replaceExp p exp1 exp2 ->
-    @realizeState ev eq f t ac ([p']) b st ->
-    @realizeState ev eq f t ac ([p]) b st.
-Proof. admit. Qed.
+    realizeState ([p']) b st ->
+    realizeState ([p]) b st.
+Proof. admit. Admitted.
 
-Theorem expressionSubGRL {ev} {eq} {f} {t} {ac} : forall b b' b'' p st exp1 exp2 p' e,
-    validPredicate (@absEval ev eq f e b'' (exp1====exp2))=true ->
+Theorem expressionSubGRL : forall b b' b'' p st exp1 exp2 p' e,
+    validPredicate (absEval e b'' (exp1====exp2))=true ->
     e = (fst st) ->
     b' = clipBinding b (maxBindingExp (exp1====exp2)) ->
     b' = clipBinding b'' (maxBindingExp (exp1====exp2)) ->
     p' = replaceState p exp2 exp1 ->
-    @realizeState ev eq f t ac (p') b st ->
-    @realizeState ev eq f t ac (p) b st.
-Proof. admit. Qed.
+    realizeState (p') b st ->
+    realizeState (p) b st.
+Proof. admit. Admitted.
 
-Theorem expressionSubGRSNeg {ev} {eq} {f} {t} {ac} : forall b b' b'' p st exp p' e,
-    @realizeState ev eq f t ac ([exp]) b'' st ->
+Theorem expressionSubGRSNeg : forall b b' b'' p st exp p' e,
+    realizeState ([exp]) b'' st ->
     b' = clipBinding b (maxBindingExp (exp)) ->
     b' = clipBinding b'' (maxBindingExp (exp)) ->
     p' = replaceExp p (~~exp) (#0) ->
     e = (fst st) ->
-    @absEval ev eq f e b p=
-    @absEval ev eq f e b p'.
-Proof. admit. Qed.
+    absEval e b p=
+    absEval e b p'.
+Proof. admit. Admitted.
 
-Theorem expressionSubGRSOr1 {ev} {eq} {f} {t} {ac} : forall b b' b'' p st exp p' e x y,
-    @realizeState ev eq f t ac ([exp]) b'' st ->
+Theorem expressionSubGRSOr1 : forall b b' b'' p st exp p' e x y,
+    realizeState ([exp]) b'' st ->
     b' = clipBinding b (maxBindingExp (exp)) ->
     b' = clipBinding b'' (maxBindingExp (exp)) ->
     p' = replaceState p ((exp\\//x)//\\y) (y) ->
     e = (fst st) ->
-    @realizeState ev eq f t ac (p') b st ->
-    @realizeState ev eq f t ac (p) b st.
-Proof. admit. Qed.
+    realizeState (p') b st ->
+    realizeState (p) b st.
+Proof. admit. Admitted.
 
-Theorem expressionSubGRSOr2 {ev} {eq} {f} {t} {ac} : forall b b' b'' p st exp p' e x y,
-    @realizeState ev eq f t ac ([exp]) b'' st ->
+Theorem expressionSubGRSOr2 : forall b b' b'' p st exp p' e x y,
+    realizeState ([exp]) b'' st ->
     b' = clipBinding b (maxBindingExp (exp)) ->
     b' = clipBinding b'' (maxBindingExp (exp)) ->
     p' = replaceState p ((x\\//exp)//\\y) (y) ->
     e = (fst st) ->
-    @realizeState ev eq f t ac (p') b st ->
-    @realizeState ev eq f t ac (p) b st.
-Proof. admit. Qed.
+    realizeState (p') b st ->
+    realizeState (p) b st.
+Proof. admit. Admitted.
 
-Theorem expressionSubGRSNeg1 {ev} {eq} {f} {t} {ac} : forall b b' b'' p st exp p' e,
-    @realizeState ev eq f t ac ([exp]) b'' st ->
+Theorem expressionSubGRSNeg1 : forall b b' b'' p st exp p' e,
+    realizeState ([exp]) b'' st ->
     b' = clipBinding b (maxBindingExp (exp)) ->
     b' = clipBinding b'' (maxBindingExp (exp)) ->
     p' = replaceState p (~~exp) (#0) ->
     e = (fst st) ->
-    @realizeState ev eq f t ac (p') b st ->
-    @realizeState ev eq f t ac (p) b st.
-Proof. admit. Qed.
+    realizeState (p') b st ->
+    realizeState (p) b st.
+Proof. admit. Admitted.
 
-Theorem expressionSubRSVP {ev} {eq} {f} {t} {ac} : forall b b' b'' p st exp1 exp2 p' eee,
-    @realizeState ev eq f t ac ([exp1====exp2]) b st ->
+Theorem expressionSubRSVP : forall b b' b'' p st exp1 exp2 p' eee,
+    realizeState ([exp1====exp2]) b st ->
     b' = clipBinding b (maxBindingExp (exp1====exp2)) ->
     b' = clipBinding b'' (maxBindingExp (exp1====exp2)) ->
     p' = replaceExp p exp1 exp2 ->
     eee = fst st ->
-    validPredicate (@absEval ev eq f eee b'' p)=validPredicate (@absEval ev eq f eee b'' p').
-Proof. admit. Qed.
+    validPredicate (absEval eee b'' p)=validPredicate (absEval eee b'' p').
+Proof. admit. Admitted.
 
-Theorem removeQuantVar {ev} {eq} {f} {t} {ac} : forall n b e h var exp1 exp2,
-    @realizeState ev eq f t ac exp2 b (e,h) ->
+Theorem removeQuantVar : forall n b e h var exp1 exp2,
+    realizeState exp2 b (e,h) ->
     nth n b NoValue = NatValue (e var) ->
     equivState exp1 exp2 (!!var) (v(n)) = true ->
-    @realizeState ev eq f t ac exp1 b (e,h).
-Proof. admit. Qed.
+    realizeState exp1 b (e,h).
+Proof. admit. Admitted.
 
-Fixpoint removeReplaceExp {ev} {eq} {f} (loc1 : @absExp ev eq f) (loc2 : @absExp ev eq f) (exp : @absExp ev eq f) :=
+Fixpoint removeReplaceExp (loc1 : absExp) (loc2 : absExp) (exp : absExp) :=
     match exp with
     | AbsFun (AbsNthId) (p::q::nil) =>
                 match p,q with
@@ -728,7 +772,7 @@ Fixpoint removeReplaceExp {ev} {eq} {f} (loc1 : @absExp ev eq f) (loc2 : @absExp
     | x => x
     end.
 
-Fixpoint removeReplaceState {ev} {eq} {f} {t} {ac} (loc1 : @absExp ev eq f) (loc2 : @absExp ev eq f) (s:@absState ev eq f t ac) : @absState ev eq f t ac :=
+Fixpoint removeReplaceState (loc1 : absExp) (loc2 : absExp) (s:absState) : absState :=
    match s with
     | AbsStar s1 s2 => (AbsStar (removeReplaceState loc1 loc2 s1) (removeReplaceState loc1 loc2 s2))
     | AbsOrStar s1 s2 => (AbsOrStar (removeReplaceState loc1 loc2 s1) (removeReplaceState loc1 loc2 s2))
@@ -737,24 +781,29 @@ Fixpoint removeReplaceState {ev} {eq} {f} {t} {ac} (loc1 : @absExp ev eq f) (loc
     | AbsAll e s => AbsAll (removeReplaceExp loc1 loc2 e) (removeReplaceState loc1 loc2 s)
     | AbsEach e s => AbsEach (removeReplaceExp loc1 loc2 e) (removeReplaceState loc1 loc2 s)
     | AbsEmpty => AbsEmpty
+    | AbsNone => AbsNone
+    | AbsAny => AbsAny
     | AbsLeaf i l => AbsLeaf i (map (removeReplaceExp loc1 loc2) l)
     | AbsAccumulate i e1 e2 e3 => AbsAccumulate i (removeReplaceExp loc1 loc2 e1) (removeReplaceExp loc1 loc2 e2) (removeReplaceExp loc1 loc2 e3)
     | AbsMagicWand s1 s2 => AbsMagicWand (removeReplaceState loc1 loc2 s1) (removeReplaceState loc1 loc2 s2)
     | AbsUpdateVar s i v => AbsUpdateVar (removeReplaceState loc1 loc2 s) i (removeReplaceExp loc1 loc2 v)
+    | AbsUpdateWithLoc s i v => AbsUpdateWithLoc (removeReplaceState loc1 loc2 s) i (removeReplaceExp loc1 loc2 v)
+    | AbsUpdateLoc s i v => AbsUpdateLoc (removeReplaceState loc1 loc2 s) (removeReplaceExp loc1 loc2 i) (removeReplaceExp loc1 loc2 v)
     | AbsUpdState s1 s2 s3 => AbsUpdState (removeReplaceState loc1 loc2 s1) (removeReplaceState loc1 loc2 s2) (removeReplaceState loc1 loc2 s3)
+    | AbsClosure s l => AbsClosure s (map (removeReplaceExp loc1 loc2) l)
    end.
 
-Theorem removeReplace {ev} {eq} {f} {t} {ac} : forall b b' b'' p st e h exp1 exp2 p',
-    @realizeState ev eq f t ac (p) b st ->
-    validPredicate (@absEval ev eq f e b'' (exp1====exp2))=false ->
+Theorem removeReplace : forall b b' b'' p st e h exp1 exp2 p',
+    realizeState (p) b st ->
+    validPredicate (absEval e b'' (exp1====exp2))=false ->
     b' = clipBinding b (maxBindingExp (exp1====exp2)) ->
     b' = clipBinding b'' (maxBindingExp (exp1====exp2)) ->
     st = (e,h) ->
     p' = removeReplaceState exp1 exp2 p ->
-    @realizeState ev eq f t ac (p') b st.
-Proof. admit. Qed.
+    realizeState (p') b st.
+Proof. admit. Admitted.
 
-Fixpoint removeReplaceSameExp {ev} {eq} {f} (l : @absExp ev eq f) (loc : @absExp ev eq f) (exp : @absExp ev eq f) :=
+Fixpoint removeReplaceSameExp (l : absExp) (loc : absExp) (exp : absExp) :=
     match exp with
     | AbsFun (AbsNthId) (p::q::nil) =>
                 match p,q with
@@ -770,7 +819,7 @@ Fixpoint removeReplaceSameExp {ev} {eq} {f} (l : @absExp ev eq f) (loc : @absExp
     | x => x
     end.
 
-Fixpoint removeReplaceSameState {ev} {eq} {f} {t} {ac} (loc1 : @absExp ev eq f) (loc2 : @absExp ev eq f) (s:@absState ev eq f t ac) : @absState ev eq f t ac :=
+Fixpoint removeReplaceSameState (loc1 : absExp) (loc2 : absExp) (s:absState) : absState :=
    match s with
     | AbsStar s1 s2 => (AbsStar (removeReplaceSameState loc1 loc2 s1) (removeReplaceSameState loc1 loc2 s2))
     | AbsOrStar s1 s2 => (AbsOrStar (removeReplaceSameState loc1 loc2 s1) (removeReplaceSameState loc1 loc2 s2))
@@ -779,42 +828,47 @@ Fixpoint removeReplaceSameState {ev} {eq} {f} {t} {ac} (loc1 : @absExp ev eq f) 
     | AbsAll e s => AbsAll (removeReplaceSameExp loc1 loc2 e) (removeReplaceSameState loc1 loc2 s)
     | AbsEach e s => AbsEach (removeReplaceSameExp loc1 loc2 e) (removeReplaceSameState loc1 loc2 s)
     | AbsEmpty => AbsEmpty
+    | AbsNone => AbsNone
+    | AbsAny => AbsAny
     | AbsLeaf i l => AbsLeaf i (map (removeReplaceSameExp loc1 loc2) l)
     | AbsAccumulate i e1 e2 e3 => AbsAccumulate i (removeReplaceSameExp loc1 loc2 e1) (removeReplaceSameExp loc1 loc2 e2) (removeReplaceSameExp loc1 loc2 e3)
     | AbsMagicWand s1 s2 => AbsMagicWand (removeReplaceSameState loc1 loc2 s1) (removeReplaceSameState loc1 loc2 s2)
     | AbsUpdateVar s i v => AbsUpdateVar (removeReplaceSameState loc1 loc2 s) i (removeReplaceSameExp loc1 loc2 v)
+    | AbsUpdateWithLoc s i v => AbsUpdateWithLoc (removeReplaceSameState loc1 loc2 s) i (removeReplaceSameExp loc1 loc2 v)
+    | AbsUpdateLoc s i v => AbsUpdateLoc (removeReplaceSameState loc1 loc2 s) (removeReplaceSameExp loc1 loc2 i) (removeReplaceSameExp loc1 loc2 v)
     | AbsUpdState s1 s2 s3 => AbsUpdState (removeReplaceSameState loc1 loc2 s1) (removeReplaceSameState loc1 loc2 s2) (removeReplaceSameState loc1 loc2 s3)
+    | AbsClosure s l => AbsClosure s (map (removeReplaceSameExp loc1 loc2) l)
    end.
 
-Theorem removeReplaceSame {ev} {eq} {f} {t} {ac} : forall b p st l loc p' ll n,
-    @realizeState ev eq f t ac ([p]) b st ->
+Theorem removeReplaceSame : forall b p st l loc p' ll n,
+    realizeState ([p]) b st ->
     p' = removeReplaceSameExp l loc p ->
-    ListValue ll = @absEval ev eq f (fst st) b l ->
-    NatValue n = @absEval ev eq f (fst st) b loc ->
+    ListValue ll = absEval (fst st) b l ->
+    NatValue n = absEval (fst st) b loc ->
     n < length ll ->
-    @realizeState ev eq f t ac ([p']) b st.
-Proof. admit. Qed.
+    realizeState ([p']) b st.
+Proof. admit. Admitted.
 
-Theorem realizeValidPredicate {ev} {eq} {f} {t} {ac} : forall st e h exp b,
+Theorem realizeValidPredicate : forall st e h exp b,
     st = (e,h) ->
-    (validPredicate (@absEval ev eq f e b exp)=true <-> @realizeState ev eq f t ac ([exp]) b st).
-Proof. admit. Qed.
+    (validPredicate (absEval e b exp)=true <-> realizeState ([exp]) b st).
+Proof. admit. Admitted.
 
-Theorem validPredicateSymmetry {ev} {eq} {f} : forall b e exp1 exp2,
-    validPredicate (@absEval ev eq f e b (exp1====exp2))=
-    validPredicate (@absEval ev eq f e b (exp2====exp1)).
-Proof. admit. Qed.
+Theorem validPredicateSymmetry : forall b e exp1 exp2,
+    validPredicate (absEval e b (exp1====exp2))=
+    validPredicate (absEval e b (exp2====exp1)).
+Proof. admit. Admitted.
 
-Function mapSum {t} {teq} {f} (env : id -> nat) (b : list (@Value t)) (values : list (@Value t)) (e : @absExp t teq f) : nat :=
+Function mapSum (env : id -> nat) (b : list (@Value unit)) (values : list (@Value unit)) (e : absExp) : nat :=
   match values with
   | nil => 0
-  | (ff::rr) => match (@absEval t teq f env (b++(ff::nil)) e) with
+  | (ff::rr) => match (absEval env (b++(ff::nil)) e) with
                 | NatValue x => (mapSum env b rr e)+x
                 | _ => mapSum env b rr e
                 end
   end.
 
-Function singlePred {ev} {eq} {f} {t} {ac} (s : @absState ev eq f t ac) :=
+Function singlePred (s : absState) :=
     match s with
     | [x] => Some x
     | (a ** b) => match singlePred a,singlePred b with
@@ -828,68 +882,68 @@ Function singlePred {ev} {eq} {f} {t} {ac} (s : @absState ev eq f t ac) :=
     | _ => None
     end.
 
-Theorem andSum8 {ev} {eq} {f} {t} {ac} : forall v0 v1 v2 v3 v4 v5 v6 v7 vv v r e s state ee,
-    @realizeState ev eq f t ac (SUM(r,e,v)) (v0::v1::v2::v3::v4::v5::v6::v7::nil) s ->
+Theorem andSum8 : forall v0 v1 v2 v3 v4 v5 v6 v7 vv v r e s state ee,
+    realizeState (SUM(r,e,v)) (v0::v1::v2::v3::v4::v5::v6::v7::nil) s ->
     (forall x, In x vv ->
                realizeState state (v0::v1::v2::v3::v4::v5::v6::v7::x::nil) s) ->
-    Some ee = @singlePred ev eq f t ac state ->
-    (@ListValue ev vv) = @absEval ev eq f (fst s) (v0::v1::v2::v3::v4::v5::v6::v7::nil) r ->
-    @realizeState ev eq f t ac (SUM(r,ee //\\ e,v)) (v0::v1::v2::v3::v4::v5::v6::v7::nil) s.
-Proof. admit. Qed.
+    Some ee = singlePred state ->
+    (@ListValue unit vv) = absEval (fst s) (v0::v1::v2::v3::v4::v5::v6::v7::nil) r ->
+    realizeState (SUM(r,ee //\\ e,v)) (v0::v1::v2::v3::v4::v5::v6::v7::nil) s.
+Proof. admit. Admitted.
 
-Theorem implySum8x10 {ev} {eq} {f} {t} {ac} : forall v0 v1 v2 v3 v4 v5 v6 v7 v8 v9 vv v r e s state ee,
-    @realizeState ev eq f t ac (SUM(r,e,v)) (v0::v1::v2::v3::v4::v5::v6::v7::v8::v9::nil) s ->
+Theorem implySum8x10 : forall v0 v1 v2 v3 v4 v5 v6 v7 v8 v9 vv v r e s state ee,
+    realizeState (SUM(r,e,v)) (v0::v1::v2::v3::v4::v5::v6::v7::v8::v9::nil) s ->
     (forall x, In x vv ->
                realizeState state (v0::v1::v2::v3::v4::v5::v6::v7::x::nil) s) ->
-    Some ee = (@singlePred ev eq f t ac state) ->
-    (@ListValue ev vv) = @absEval ev eq f (fst s) (v0::v1::v2::v3::v4::v5::v6::v7::v8::v9::nil) r ->
-    @realizeState ev eq f t ac (SUM(r,(~~(addExpVar 8 (addExpVar 8 ee))) \\// e,v)) (v0::v1::v2::v3::v4::v5::v6::v7::v8::v9::nil) s.
-Proof. admit. Qed.
+    Some ee = (singlePred state) ->
+    (@ListValue unit vv) = absEval (fst s) (v0::v1::v2::v3::v4::v5::v6::v7::v8::v9::nil) r ->
+    realizeState (SUM(r,(~~(addExpVar 8 (addExpVar 8 ee))) \\// e,v)) (v0::v1::v2::v3::v4::v5::v6::v7::v8::v9::nil) s.
+Proof. admit. Admitted.
 
-Theorem andSum8x10 {ev} {eq} {f} {t} {ac} : forall v0 v1 v2 v3 v4 v5 v6 v7 v8 v9 vv v r e s state ee,
-    @realizeState ev eq f t ac (SUM(r,e,v)) (v0::v1::v2::v3::v4::v5::v6::v7::v8::v9::nil) s ->
+Theorem andSum8x10 : forall v0 v1 v2 v3 v4 v5 v6 v7 v8 v9 vv v r e s state ee,
+    realizeState (SUM(r,e,v)) (v0::v1::v2::v3::v4::v5::v6::v7::v8::v9::nil) s ->
     (forall x, In x vv ->
                realizeState state (v0::v1::v2::v3::v4::v5::v6::v7::x::nil) s) ->
-    Some ee = (@singlePred ev eq f t ac state) ->
-    (@ListValue ev vv) = @absEval ev eq f (fst s) (v0::v1::v2::v3::v4::v5::v6::v7::v8::v9::nil) r ->
-    @realizeState ev eq f t ac (SUM(r,((addExpVar 8 (addExpVar 8 ee))) //\\ e,v)) (v0::v1::v2::v3::v4::v5::v6::v7::v8::v9::nil) s.
-Proof. admit. Qed.
+    Some ee = (singlePred state) ->
+    (@ListValue unit vv) = absEval (fst s) (v0::v1::v2::v3::v4::v5::v6::v7::v8::v9::nil) r ->
+    realizeState (SUM(r,((addExpVar 8 (addExpVar 8 ee))) //\\ e,v)) (v0::v1::v2::v3::v4::v5::v6::v7::v8::v9::nil) s.
+Proof. admit. Admitted.
 
-Theorem resolveSum8x10 {ev} {eq} {f} {t} {ac} : forall v0 v1 v2 v3 v4 v5 v6 v7 v8 v9 vv v r e s state ee ff,
-    @realizeState ev eq f t ac (SUM(r,e,v)) (v0::v1::v2::v3::v4::v5::v6::v7::v8::v9::nil) s ->
+Theorem resolveSum8x10 : forall v0 v1 v2 v3 v4 v5 v6 v7 v8 v9 vv v r e s state ee ff,
+    realizeState (SUM(r,e,v)) (v0::v1::v2::v3::v4::v5::v6::v7::v8::v9::nil) s ->
     (forall x, In x vv ->
                realizeState state (v0::v1::v2::v3::v4::v5::v6::v7::x::nil) s) ->
-    Some ee = (@singlePred ev eq f t ac state) ->
+    Some ee = (singlePred state) ->
     (forall x s, In x vv ->
-                 @realizeState ev eq f t ac ([((addExpVar 8 (addExpVar 8 ee)))]) (v0::v1::v2::v3::v4::v5::v6::v7::v8::v9::x::nil) (s,empty_heap) ->
-                 @realizeState ev eq f t ac ([e====ff]) (v0::v1::v2::v3::v4::v5::v6::v7::v8::v9::x::nil) (s,empty_heap)) ->
-    (@ListValue ev vv) = @absEval ev eq f (fst s) (v0::v1::v2::v3::v4::v5::v6::v7::v8::v9::nil) r ->
-    @realizeState ev eq f t ac (SUM(r,ff,v)) (v0::v1::v2::v3::v4::v5::v6::v7::v8::v9::nil) s.
-Proof. admit. Qed.
+                 realizeState ([((addExpVar 8 (addExpVar 8 ee)))]) (v0::v1::v2::v3::v4::v5::v6::v7::v8::v9::x::nil) (s,empty_heap) ->
+                 realizeState ([e====ff]) (v0::v1::v2::v3::v4::v5::v6::v7::v8::v9::x::nil) (s,empty_heap)) ->
+    (@ListValue unit vv) = absEval (fst s) (v0::v1::v2::v3::v4::v5::v6::v7::v8::v9::nil) r ->
+    realizeState (SUM(r,ff,v)) (v0::v1::v2::v3::v4::v5::v6::v7::v8::v9::nil) s.
+Proof. admit. Admitted.
 
-Theorem resolveSum9x10 {ev} {eq} {f} {t} {ac} : forall v0 v1 v2 v3 v4 v5 v6 v7 v8 v9 vv v r e s state ee ff,
-    @realizeState ev eq f t ac (SUM(r,e,v)) (v0::v1::v2::v3::v4::v5::v6::v7::v8::v9::nil) s ->
+Theorem resolveSum9x10 : forall v0 v1 v2 v3 v4 v5 v6 v7 v8 v9 vv v r e s state ee ff,
+    realizeState (SUM(r,e,v)) (v0::v1::v2::v3::v4::v5::v6::v7::v8::v9::nil) s ->
     (forall x, In x vv ->
                realizeState state (v0::v1::v2::v3::v4::v5::v6::v7::v8::x::nil) s) ->
-    Some ee = (@singlePred ev eq f t ac state) ->
+    Some ee = (singlePred state) ->
     (forall x s, In x vv ->
-                 @realizeState ev eq f t ac ([(addExpVar 9 ee)]) (v0::v1::v2::v3::v4::v5::v6::v7::v8::v9::x::nil) (s,empty_heap) ->
-                 @realizeState ev eq f t ac ([e====ff]) (v0::v1::v2::v3::v4::v5::v6::v7::v8::v9::x::nil) (s,empty_heap)) ->
-    (@ListValue ev vv) = @absEval ev eq f (fst s) (v0::v1::v2::v3::v4::v5::v6::v7::v8::v9::nil) r ->
-    @realizeState ev eq f t ac (SUM(r,ff,v)) (v0::v1::v2::v3::v4::v5::v6::v7::v8::v9::nil) s.
-Proof. admit. Qed.
+                 realizeState ([(addExpVar 9 ee)]) (v0::v1::v2::v3::v4::v5::v6::v7::v8::v9::x::nil) (s,empty_heap) ->
+                 realizeState ([e====ff]) (v0::v1::v2::v3::v4::v5::v6::v7::v8::v9::x::nil) (s,empty_heap)) ->
+    (@ListValue unit vv) = absEval (fst s) (v0::v1::v2::v3::v4::v5::v6::v7::v8::v9::nil) r ->
+    realizeState (SUM(r,ff,v)) (v0::v1::v2::v3::v4::v5::v6::v7::v8::v9::nil) s.
+Proof. admit. Admitted.
 
-Theorem sumDiff {ev} {eq} {f} {t} {ac} : forall s b r e s1 s2 sd x,
-    @realizeState ev eq f t ac (SUM(r,(e //\\ x),(#s1))) b s ->
-    @realizeState ev eq f t ac (SUM(r,e,(#s2))) b s ->
+Theorem sumDiff : forall s b r e s1 s2 sd x,
+    realizeState (SUM(r,(e //\\ x),(#s1))) b s ->
+    realizeState (SUM(r,e,(#s2))) b s ->
     sd = s2-s1 ->
-    @realizeState ev eq f t ac (SUM(r,(e //\\ (~~x)),(#sd))) b s.
-Proof. admit. Qed.
+    realizeState (SUM(r,(e //\\ (~~x)),(#sd))) b s.
+Proof. admit. Admitted.
 
-Theorem sumAllConv {ev} {eq} {f} {t} {ac} : forall r e b s,
-    @realizeState ev eq f t ac (SUM(r,e,#0)) b s ->
-    @realizeState ev eq f t ac (AbsAll r ([~~e])) b s.
-Proof. admit. Qed.
+Theorem sumAllConv : forall r e b s,
+    realizeState (SUM(r,e,#0)) b s ->
+    realizeState (AbsAll r ([~~e])) b s.
+Proof. admit. Admitted.
 
 Function deletenth {t} (x : nat) (l : list t) :=
     match x,l with
@@ -901,37 +955,37 @@ Function deletenth {t} (x : nat) (l : list t) :=
     | _,_ => None
     end.
 
-Theorem dumpVar {ev} {eq} {f} {t} {ac} : forall state b s n b',
-    @realizeState ev eq f t ac state b s ->
+Theorem dumpVar : forall state b s n b',
+    realizeState state b s ->
     hasVnState state n=false ->
     Some b' = deletenth n b ->
-    @realizeState ev eq f t ac (removeStateVar n state) b' s.
-Proof. admit. Qed.
+    realizeState (removeStateVar n state) b' s.
+Proof. admit. Admitted.
 
-Theorem dumpVar2 {ev} {eq} {f} {t} {ac} : forall state b s n b',
-    @realizeState ev eq f t ac (removeStateVar n state) b' s ->
+Theorem dumpVar2 : forall state b s n b',
+    realizeState (removeStateVar n state) b' s ->
     hasVnState state n=false ->
     Some b' = deletenth n b ->
-    @realizeState ev eq f t ac state b s.
-Proof. admit. Qed.
+    realizeState state b s.
+Proof. admit. Admitted.
 
-Theorem mapSumExists {ev} {eq} {f} {t} {ac} : forall v e b vals exp,
-    S v = @mapSum ev eq f e b vals exp ->
-    exists x, In x vals /\ @realizeState ev eq f t ac ([exp]) (b++(x::nil)) (e,empty_heap).
-Proof. admit. Qed.
+Theorem mapSumExists : forall v e b vals exp,
+    S v = mapSum e b vals exp ->
+    exists x, In x vals /\ realizeState ([exp]) (b++(x::nil)) (e,empty_heap).
+Proof. admit. Admitted.
 
-Theorem mapSumNeg {ev} {eq} {f} {t} {ac} : forall e b vals exp,
-    0 = @mapSum ev eq f e b vals exp ->
-    forall x, In x vals -> @realizeState ev eq f t ac ([~~exp]) (b++(x::nil)) (e,empty_heap).
-Proof. admit. Qed.
+Theorem mapSumNeg : forall e b vals exp,
+    0 = mapSum e b vals exp ->
+    forall x, In x vals -> realizeState ([~~exp]) (b++(x::nil)) (e,empty_heap).
+Proof. admit. Admitted.
 
 Theorem subRangeSet {ev} : forall x rl rl0 n v,
-    rangeSet (@findRecord ev n v) = ListValue rl0 ->
+    rangeSet (ListValue (@findRecord ev n v)) = ListValue rl0 ->
     In x rl0 ->
     In (@NatValue ev n) rl ->
     rangeSet v = ListValue rl ->
     In x rl.
-Proof. admit. Qed.
+Proof. admit. Admitted.
 
 Function replacenth {t} (x : nat) (e : t) (l : list t) :=
     match x,l with
@@ -943,29 +997,93 @@ Function replacenth {t} (x : nat) (e : t) (l : list t) :=
     | _,_ => None
     end.
 
-Theorem subBoundVar {ev} {eq} {f} {t} {ac} : forall b eee exp b' p p' n,
-    nth n b' NoValue = @absEval ev eq f eee b exp ->
-    @realizeState ev eq f t ac p b' (eee, empty_heap) ->
+Theorem subBoundVar : forall b eee exp b' p p' n,
+    nth n b' NoValue = absEval eee b exp ->
+    realizeState p b' (eee, empty_heap) ->
     Some b = replacenth n (nth n b NoValue) b' ->
     p' = replaceState p v(n) exp ->
-    @realizeState ev eq f t ac p' b (eee,empty_heap).
-Proof. admit. Qed.
+    realizeState p' b (eee,empty_heap).
+Proof. admit. Admitted.
 
-Theorem arrayLength {ev} {eq} {f} {t} {ac} : forall v len n b st l,
-    @realizeState ev eq f t ac (ARRAY(v,#len,v(n))) b st ->
+Theorem arrayLength : forall v len n b st l,
+    realizeState (ARRAY(v,#len,v(n))) b st ->
     nth n b NoValue = ListValue l ->
     length l = len.
-Proof. admit. Qed.
+Proof. admit. Admitted.
 
-Theorem sumExists {ev} {eq} {f} {t} {ac} : forall b eee r e n,
-    @realizeState ev eq f t ac (SUM(r,e,(#(S n)))) b (eee,empty_heap) ->
-    @realizeState ev eq f t ac (AbsExists r ([e])) b (eee,empty_heap).
-Proof. admit. Qed.
+Theorem sumExists : forall b eee r e n,
+    realizeState (SUM(r,e,(#(S n)))) b (eee,empty_heap) ->
+    realizeState (AbsExists r ([e])) b (eee,empty_heap).
+Proof. admit. Admitted.
 
-Theorem reverse {ev} {eq} {f} {t} {ac} : forall st x y b,
-    @realizeState ev eq f t ac ([x====y]) b st ->
-    @realizeState ev eq f t ac ([y====x]) b st.
-Proof. admit. Qed.
+Theorem reverse: forall st x y b,
+    realizeState ([x====y]) b st ->
+    realizeState ([y====x]) b st.
+Proof. admit. Admitted.
+
+Theorem entailmentUnusedUpdated : forall s b state v e,
+     realizeState (AbsUpdateVar state v e) b s ->
+     hasVarState state v=false ->
+     realizeState state b s.
+Proof.
+    admit.
+Admitted.
+
+
+Function allEmpty (s : absState) :=
+    match s with
+    | AbsEmpty => true
+    | AbsStar a b => if allEmpty a then allEmpty b else false
+    | AbsOrStar a b => if allEmpty a then allEmpty b else false
+    | _ => false
+    end.
+    
+Theorem emptyRealizeState : forall s b e,
+    allEmpty(s)=true ->
+    @realizeState s b (e,empty_heap).
+Proof.
+    admit.
+Admitted.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

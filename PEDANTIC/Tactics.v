@@ -13,6 +13,7 @@
 Require Export SfLib.
 Require Export SfLibExtras.
 Require Export Coq.Logic.FunctionalExtensionality.
+Require Import Omega.
 
 Theorem or_comm:
     forall a b, (a \/ b) -> (b \/ a).
@@ -206,6 +207,7 @@ Ltac crunchStep := match goal with
                    | [ |- _ -> _] => intros
 
                    | [ H: In _ (_++_) |- _ ] => apply in_dist in H
+                   | [ H: True |- _ ] => clear H
                    | [ |- In _ (_++_) ] => apply in_split
                    end.
 
@@ -222,3 +224,6 @@ Ltac caseAnalysisStep := match goal with
 Ltac crunch := repeat crunchStep.
 
 Ltac caseAnalysis := (repeat caseAnalysisStep);crunch.
+
+
+

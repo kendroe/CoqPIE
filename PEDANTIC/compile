@@ -13,8 +13,13 @@ coqc StateImplication.v
 coqc Unfold.v
 coqc merge.v
 coqc ProgramTactics.v
-coqc SatSolverDefs.v
-coqc SatSolverMain.v
+#coqc SatSolverDefs.v
+coqc ClosureHelper.v
+coqc UpdateHelper.v
+coqc MagicWandExistsHelper.v
+coqc StateHypHelper.v
+coqc TreeTraversal.v
+#coqc SatSolverAux1.v
+#coqc SatSolverMain.v
 date
-
 

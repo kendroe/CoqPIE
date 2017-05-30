@@ -26,6 +26,7 @@
  *
  **********************************************************************************)
 
+Require Import Omega.
 Require Export SfLib.
 Require Export ImpHeap.
 Require Export AbsState.
@@ -54,16 +55,42 @@ Require Export FunctionalExtensionality.
  *
  ***************************************************************************)
 
-Definition absExecute {ev} {eq} {f} {t} {ac} (ff : functions) (c : com) (s : @absState ev eq f t ac) (s' : @absState ev eq f t ac) (r : result) : Prop :=
-    forall st st',
-        realizeState s nil st -> ((exists st', exists r, ceval ff st c st' r) /\
-        (ceval ff st c st' r -> realizeState s' nil st')).
+  Fixpoint In {A:Type} (a:A) (l:list A) : Prop :=
+    match l with
+      | nil => False
+      | b :: m => b = a \/ In a m
+    end.
+
+Definition absExecute (ff : functions) (c : com) (s : absState) (s' : absState) (r : list absExp) (s'' : absState)  (exc : id -> (absExp * absState)) : Prop :=
+    forall st st' i x, 
+        realizeState s nil st ->
+        ((exists st', exists r, ceval ff st c st' r) /\
+         ((ceval ff st c st' NoResult -> realizeState s' nil st') \/
+          (ceval ff st c st' (Return x) -> (forall rx, In rx r -> absEval (fst st') nil rx = NatValue x /\ realizeState s'' nil st')) \/
+          (ceval ff st c st' (Exception i x) -> (absEval (fst st') nil (fst (exc i)) = NatValue x /\ realizeState (snd (exc i)) nil st')))).
+
+
+Fixpoint evalList env el vl : Prop :=
+    match (el,vl) with
+    | (nil,nil) => True
+    | (ef::er,vf::vr) => absEval env nil ef = vf /\ evalList env er vr
+    | (_,_) => False
+    end.
+
+(*
+ * mergeReturnStates specifies where states need to be merged at the end of processing an if-then-else
+ *)
+Definition mergeReturnStates (Q1 : absState) (Q2 : absState) (Q : absState) (R1 : list absExp) (R2 : list absExp) (R : list absExp) :=
+    (forall s v, realizeState Q1 nil s -> evalList (fst s) R1 v-> (realizeState Q nil s /\ evalList (fst s) R v)) /\
+    (forall s v, realizeState Q2 nil s -> evalList (fst s) R2 v-> (realizeState Q nil s /\ evalList (fst s) R v)).
 
 (* Our Hoare triple notation is based on the absExecute definition *)
-Definition hoare_triple {ev} {eq} {f} {t} {ac} (P : @absState ev eq f t ac) c (Q : @absState ev eq f t ac) r :=
-           absExecute (fun x => fun y => fun z => fun a => fun b => False) c P Q r.
+Definition hoare_triple (P : absState) c (Q : absState) r Qr exc :=
+           absExecute (fun x => fun y => fun z => fun a => fun b => False) c P Q r Qr exc.
 
-Notation "{{ P }} c {{ Q , r }}" := (hoare_triple P c Q r) (at level 90).
+Notation "{{ P }} c {{ Q }}" := (hoare_triple P c Q (#0) AbsNone (fun x => (#0,AbsNone))) (at level 90).
+
+Notation "{{ P }} c {{ Q 'return' rr 'with' QQ }}" := (hoare_triple P c Q rr QQ (fun x => (#0,AbsNone))) (at level 90).
 
 (* **************************************************************************
  *
@@ -71,12 +98,22 @@ Notation "{{ P }} c {{ Q , r }}" := (hoare_triple P c Q r) (at level 90).
  *
  * **************************************************************************)
 
-Theorem strengthenPost : forall ev eq f t ac (P : @absState ev eq f t ac) c Q r Q',
-    {{ P }} c {{ Q , r }} ->
+Fixpoint equivEvalList env el1 el2 : Prop :=
+    match (el1,el2) with
+    | (nil,nil) => True
+    | (ef::er,vf::vr) => absEval env nil ef = absEval env nil vf /\ equivEvalList env er vr
+    | (_,_) => False
+    end.
+
+Theorem strengthenPost : forall (P : absState) c Q r Q' QQ QQ' r',
+    {{ P }} c {{ Q return r with QQ }} ->
     (forall s, realizeState Q nil s -> realizeState Q' nil s) ->
-    {{ P }} c {{ Q' , r }}.
-Proof.
-    unfold hoare_triple. unfold absExecute. intros.
+    (forall s, realizeState QQ nil s -> realizeState QQ' nil s) ->
+    (forall s, realizeState QQ nil s -> realizeState QQ' nil s ->
+        equivEvalList (fst s) r r' ) ->
+    {{ P }} c {{ Q' return r' with QQ' }}.
+Proof. admit.
+    (*unfold hoare_triple. unfold absExecute. intros.
 
     assert (forall st st' : state,
     realizeState P nil st ->
@@ -112,8 +149,8 @@ Proof.
 
     eapply H2. apply st'. apply H1.
 
-    intros. apply H0. eapply H3. apply H1. apply H4.
-Qed.
+    intros. apply H0. eapply H3. apply H1. apply H4.*)
+Admitted.
 
 (* **************************************************************************
  *
@@ -121,22 +158,33 @@ Qed.
  *
  * **************************************************************************)
 
-Theorem skip_thm : forall ev eq f t ac (P:@absState ev eq f t ac),
-    {{ P }}SKIP{{ P,NoResult }}.
-Proof. admit. Qed.
+Theorem skip_thm : forall (P:absState) r,
+    {{ P }}SKIP{{ P return r with AbsNone }}.
+Proof. admit. Admitted.
+
+(* **************************************************************************
+ *
+ * Theorem for RETURN
+ *
+ * **************************************************************************)
+
+Theorem return_thm : forall (P:absState) e r,
+    r = convertToAbsExp e ->
+    {{ P }}RETURN e{{ AbsNone return (r::nil) with P }}.
+Proof. admit. Admitted.
 
 (* **************************************************************************
  *
  * Theorems for statement composition
  *
  * **************************************************************************)
-Theorem compose : forall ev eq f t ac (P:@absState ev eq f t ac) c1 P' c2 Q r,
-    (forall x st st' f, ceval f st c1 st' x -> x=NoResult) ->
-    {{ P }} c1 {{ P', NoResult }} ->
-    {{ P'}} c2 {{ Q , r }} ->
-    {{ P }} c1;c2 {{ Q , r }}.
-Proof.
-    unfold hoare_triple. unfold absExecute. intros.
+Theorem compose : forall (P:absState) c1 P' c2 Q R r1 r2 R' Q' rm,
+    {{ P }} c1 {{ Q return r1 with P' }} ->
+    {{ Q }} c2 {{ R return r2 with Q' }} ->
+    mergeReturnStates P' Q' R' r1 r2 rm ->
+    {{ P }} c1;c2 {{ R return rm with R' }}.
+Proof. admit.
+    (*unfold hoare_triple. unfold absExecute. intros.
 
     assert (forall st st' : state,
     realizeState P nil st ->
@@ -152,7 +200,7 @@ Proof.
     (ceval
        (fun (_ : id) (_ : state) (_ : list nat) (_ : state) (_ : result) =>
         False) st0 c1 st' NoResult -> realizeState P' nil st')).
-    eapply H0. apply H3. inversion H4. apply H5.
+    eapply H. apply H3. inversion H4. apply H5.
 
     assert (forall st st' : state,
     realizeState P nil st -> (ceval
@@ -166,7 +214,7 @@ Proof.
     (ceval
        (fun (_ : id) (_ : state) (_ : list nat) (_ : state) (_ : result) =>
         False) st0 c1 st'0 NoResult -> realizeState P' nil st'0)).
-    eapply H0. apply H4. inversion H6. apply H8. apply H5.
+    eapply H. apply H4. inversion H6. apply H8. apply H5.
 
     assert (forall st st' : state,
     realizeState P' nil st ->
@@ -203,7 +251,7 @@ Proof.
     assert (realizeState P nil st). apply H2.
 
     eapply H3 in H2.
-    inversion H2. subst. inversion H8. destruct x0. eapply H5 in H4.
+    inversion H2. subst. inversion H9. destruct x0. eapply H5 in H4.
     inversion H4. inversion H10.
     eapply ex_intro. eapply ex_intro. eapply CESeq1. eapply H9. eapply H11.
     eapply x.
@@ -218,8 +266,8 @@ Proof.
     apply H12. apply H15. apply H2.
 
     assert ((Return v)=NoResult). eapply H. apply H14. inversion H7.
-    assert (Exception name val=NoResult). eapply H. apply H14. inversion H7.
-Qed.
+    assert (Exception name val=NoResult). eapply H. apply H14. inversion H7.*)
+Admitted.
 
 (* **************************************************************************
  *
@@ -242,7 +290,7 @@ Qed.
  * NatValue.  If the result 'None' is returned, then no such set of key
  * variables can be determined.
  *)
-Fixpoint keyVariables {ev} {eq} {f} (e : @absExp ev eq f) : option (list id) := 
+Fixpoint keyVariables (e : absExp) : option (list id) := 
     match e with
     | (AbsFun (AbsPlusId) (l::r::nil)) =>
             match (keyVariables l,keyVariables r) with
@@ -295,7 +343,7 @@ Definition is_key_variable (x : id) (kv : option (list id)) :=
  * 's' is required to be assigned if it is a key variable in either the first expression
  * of an AbsPredicate or TREE or either the first or second predicate in an AbsCell.
  *)
-Fixpoint basicVarAssigned {ev} {eq} {f} {t} {ac} (s : @absState ev eq f t ac) id : bool :=
+Fixpoint basicVarAssigned (s : absState) id : bool :=
    match s with
    | AbsStar s1 s2 => if basicVarAssigned s1 id then true else basicVarAssigned s2 id
    | AbsExistsT s => basicVarAssigned s id
@@ -309,7 +357,7 @@ Fixpoint basicVarAssigned {ev} {eq} {f} {t} {ac} (s : @absState ev eq f t ac) id
    | _ => false
    end.
 
-Fixpoint getRoot {ev} {eq} {f} {t} {ac} (s : @absState ev eq f t ac) : absState :=
+Fixpoint getRoot (s : absState) : absState :=
     match s with
     | AbsExistsT s => getRoot s
     | _ => s
@@ -323,7 +371,7 @@ Fixpoint getRoot {ev} {eq} {f} {t} {ac} (s : @absState ev eq f t ac) : absState 
  * TREE, then the variable must be assigned.  Note that the something else might
  * be an AbsQVar which is not covered by keyVariables.
  *)
-Inductive varAssigned {ev} {eq} {f} {t} {ac} : @absState ev eq f t ac -> id -> Prop :=
+Inductive varAssigned : absState -> id -> Prop :=
   | VarAssignedBasic : forall s v , basicVarAssigned s v = true ->
                                     varAssigned s v
   | VarAssignedPredicate1 : forall s v xx e a b c yy r,
@@ -338,19 +386,19 @@ Hint Constructors varAssigned.
  * A Valid expression is one in which the VarAssigned predicate holds for
  * each of the key variables.
  *)
-Definition validExpression {ev} {eq} {f} {t} {ac}
-                           (s : @absState ev eq f t ac)
-                           (e : @absExp ev eq f) :=
+Definition validExpression
+                           (s : absState)
+                           (e : absExp) :=
                                  forall x vars,
                                  keyVariables e <> None /\
                                  (Some vars = keyVariables e ->
                                  In x vars ->
                                  varAssigned s x).
 
-Theorem quantifyExp {ev} {eq} {f} :
-                    forall (x : @absExp ev eq f) (e:env) v val ee vars,
+Theorem quantifyExp :
+                    forall (x : absExp) (e:env) v val ee vars,
                     val = NatValue (e v) ->
-                    absEval (override e v ee) (val::vars) (quantifyAbsVar x v) =
+                    absEval (override e v ee) (val::vars) (quantifyAbsVar x 0 0 v) =
                     absEval e vars x.
 Proof. admit.
     (*intro x. induction x using abs_ind'.
@@ -372,19 +420,19 @@ Proof. admit.
      crunch.
      unfold quantifyAbsVar. fold (@quantifyAbsVar ev eq f).
      crunch. rewrite H0. crunch. crunch. apply (NatValue 0).*)
-Qed.
+Admitted.
 
-Theorem quantifyExpList {ev} {eq} {f} :
-                    forall (l : list (@absExp ev eq f)) (e:env) x v val vars,
+Theorem quantifyExpList :
+                    forall (l : list absExp) (e:env) x v val vars,
                     val = NatValue (e v) ->
                     (map (absEval (override e v x) (val::vars))
-                         (map (fun x0 => quantifyAbsVar x0 v) l))=
+                         (map (fun x0 => quantifyAbsVar x0 0 0 v) l))=
                     (map (absEval e vars) l).
 Proof. admit.
     (*induction l.
         crunch.
         crunch. erewrite quantifyExp. erewrite IHl. crunch. crunch. crunch.*)
-Qed.
+Admitted.
 
 Theorem mapFirsts {t} :
         forall rl l v x,
@@ -427,10 +475,10 @@ Proof.
             rewrite H1. crunch.
 Qed.
 
-Theorem mapProp {ev} :
+Theorem mapProp :
         forall l v x y,
                  In y (map
-                      (fun ss : (@Value ev) * (env * heap) =>
+                      (fun ss : (@Value unit) * (env * heap) =>
                        (fst ss, (override (fst (snd ss)) v x, snd (snd ss)))) l) ->
                  (exists y', (y = (fst y',(override (fst (snd y')) v x, snd (snd y'))) /\ In y' l)).
 Proof.
@@ -477,10 +525,10 @@ Proof.
     crunch.
 Qed.
 
-Theorem quantify1gen {ev} {eq} {f} {t} {ac} :
-                    forall (P : @absState ev eq f t ac) state v x val vars,
+Theorem quantify1gen :
+                    forall (P : absState) state v x val vars,
                     val = NatValue (fst state v) ->
-                    realizeState P vars state -> realizeState (quantifyAbsVarState P v) (val::vars)
+                    realizeState P vars state -> realizeState (quantifyAbsVarState P 0 0 v) (val::vars)
                                             (override (fst state) v x, snd state).
 Proof. admit.
     (*intro P. induction P.
@@ -570,23 +618,23 @@ Proof. admit.
     eapply RSR. crunch. rewrite quantifyExpList. crunch. crunch.
 
     crunch. inversion H0.*)
-Qed.
+Admitted.
 
-Theorem quantify1 {ev} {eq} {f} {t} {ac} :
-                    forall (P : @absState ev eq f t ac) state v x val bindings,
+Theorem quantify1 :
+                    forall (P : absState) state v x val bindings,
                     val = NatValue (fst state v) ->
-                    realizeState P bindings state -> realizeState (quantifyAbsVarState P v) (val::bindings)
+                    realizeState P bindings state -> realizeState (quantifyAbsVarState P 0 0 v) (val::bindings)
                                             (override (fst state) v x, snd state).
 Proof.
     crunch. eapply quantify1gen. crunch. crunch.
 Qed.
 
-Theorem absEvalSimp {ev} {eq} {f} : forall (e : @absExp ev eq f) n (st : state) v x bindings,
+Theorem absEvalSimp : forall (e : absExp) n (st : state) v x bindings,
         n = fst st v ->
         (absEval (override (fst st) v x) ((NatValue n)::bindings)
-                 (quantifyAbsVar e v)) =
+                 (quantifyAbsVar e 0 0 v)) =
         (absEval (fst st) bindings e).
-Proof. admit.
+Proof.
     (*induction e using abs_ind'.
 
     crunch.
@@ -603,13 +651,13 @@ Proof. admit.
         induction l. crunch.
         crunch.
         rewrite IHl. crunch. rewrite H0. crunch. crunch. crunch. crunch. crunch.
-        rewrite H0. crunch. crunch.*)
-Qed.
+        rewrite H0. crunch. crunch. *) admit.
+Admitted.
 
-Theorem absEvalSimp2 {ev} {eq} {f} : forall (e : @absExp ev eq f) (st : state) v x bindings,
+Theorem absEvalSimp2 : forall (e : absExp) (st : state) v x bindings,
         0 = fst st v ->
         (absEval (override (fst st) v x) ((NatValue 0)::bindings)
-                 (quantifyAbsVar e v)) =
+                 (quantifyAbsVar e 0 0 v)) =
         (absEval (fst st) bindings e).
 Proof. admit.
     (*induction e using abs_ind'.
@@ -633,17 +681,16 @@ Proof. admit.
         crunch.
         rewrite IHl. rewrite H1. crunch. crunch. crunch. apply 0. crunch. rewrite H1. crunch. 
         apply 0. crunch.*)
-Qed.
+Admitted.
 
-Theorem existsEvalDecompose_a {ev} {eq} {f} {t} {ac} {u} :
-    forall e (a : @absExp ev eq f) a0 i bindings,
-    supportsBasicFunctionality ev eq f t ac u ->
+Theorem existsEvalDecompose_a :
+    forall e (a : absExp) a0 i bindings,
     (i = 2 \/ i = 3 \/ i = 4 \/ i = 5 \/ i = 6 \/ i = 7 \/ i = 8) ->
     (exists x : nat,
         (absEval e bindings (AbsFun (Id i) (a :: a0 :: nil))) = NatValue x) ->
     (exists x : nat, (absEval e bindings a)= NatValue x).
 Proof.
-    crunch.
+    (*crunch.
 
     unfold supportsBasicFunctionality in H. unfold supportsFunctionality in H.
     crunch.
@@ -660,18 +707,17 @@ Proof.
             caseAnalysis;inversion H2.
             caseAnalysis;inversion H2.
             caseAnalysis;inversion H2.
-    omega.
-Qed.
+    omega. *)
+Admitted.
 
-Theorem existsEvalDecompose_b {ev} {eq} {f} {t} {ac} {u} :
-    forall e (a : @absExp ev eq f) a0 i bindings,
-    supportsBasicFunctionality ev eq f t ac u ->
+Theorem existsEvalDecompose_b :
+    forall e (a : absExp) a0 i bindings,
     (i = 2 \/ i = 3 \/ i = 4 \/ i=5 \/ i=6) ->
     (exists x : nat,
         (absEval e bindings (AbsFun (Id i) (a :: a0 :: nil))) = NatValue x) ->
     (exists x : nat, (absEval e bindings a0)= NatValue x).
 Proof.
-    crunch.
+    (*crunch.
 
     unfold supportsBasicFunctionality in H. unfold supportsFunctionality in H.
     crunch.
@@ -696,18 +742,18 @@ Proof.
             caseAnalysis;inversion H2.
             caseAnalysis;inversion H2.
             caseAnalysis;inversion H2.
-    omega.
-Qed.
+    omega.*)
+    admit.
+Admitted.
 
-Theorem existsEvalDecompose {ev} {eq} {f} {t} {ac} {u} :
-    forall e (a : @absExp ev eq f) bindings i,
-    supportsBasicFunctionality ev eq f t ac u ->
+Theorem existsEvalDecompose :
+    forall e (a : absExp) bindings i,
     (i = 10) ->
     (exists x : nat,
         (absEval e bindings (AbsFun (Id i) (a :: nil))) = NatValue x) ->
     (exists x : nat, (absEval e bindings a)= NatValue x).
 Proof.
-    crunch.
+    (*crunch.
 
     unfold supportsBasicFunctionality in H. unfold supportsFunctionality in H.
     crunch.
@@ -719,11 +765,12 @@ Proof.
     apply ex_intro with (x := n). crunch.
     inversion H0. inversion H0. inversion H0.
 
-    omega.
-Qed.
+    omega.*)
+    admit.
+Admitted.
 
 (*Theorem defineWhenKeys {ev} {eq} {f} {t} {ac} {u} :
-    forall (val : @absExp ev eq f) vars e v bindings,
+    forall (val : absExp) vars e v bindings,
     supportsBasicFunctionality ev eq f t ac u ->
     Some vars = keyVariables val ->
     In v vars ->
@@ -988,12 +1035,12 @@ Qed.*)
 (*    eapply validPickElement. crunch. crunch. crunch. rewrite H2. crunch. crunch.
 Qed.*)
 
-Theorem validKeyVariablesSubterm {ev} {eq} {f} :
-    forall ff x l, @keyVariables ev eq f (AbsFun ff l)<>None ->
+Theorem validKeyVariablesSubterm :
+    forall ff x l, keyVariables (AbsFun ff l)<>None ->
                    ff <> AbsMemberId -> ff <> AbsIncludeId ->
                    In x l -> keyVariables x<>None.
-Proof.
-    crunch.
+Proof. admit.
+    (*crunch.
 
     destruct ff. destruct n. crunch. destruct n. crunch.
     destruct n. destruct l. crunch. destruct l. crunch.
@@ -1052,16 +1099,16 @@ Proof.
 
     destruct l. inversion H2. subst. apply H. crunch.
 
-    crunch. crunch. crunch.
-Qed.
+    crunch. crunch. crunch.*)
+Admitted.
 
-Theorem keyVariablesSubset {ev} {eq} {f} :
+Theorem keyVariablesSubset :
     forall ff x l v vars1 vars2, In x l ->
-                                 @keyVariables ev eq f (AbsFun ff l) = Some vars1 ->
+                                 keyVariables (AbsFun ff l) = Some vars1 ->
                                  ff <> AbsMemberId -> ff <> AbsIncludeId ->
                                  keyVariables x = Some vars2 -> In v vars2 -> In v vars1.
-Proof.
-    crunch.
+Proof. admit.
+    (*crunch.
     destruct ff. destruct n. crunch. destruct n. crunch. destruct n.
 
     destruct l. crunch. destruct l. crunch. destruct l.
@@ -1110,29 +1157,29 @@ Proof.
 
     destruct n. crunch. destruct l. crunch. destruct l.
     inversion H. subst. clear H. rewrite H3 in H0. crunch. crunch. crunch.
-    crunch. crunch.
-Qed.
+    crunch. crunch.*)
+Admitted.
 
-Theorem validExpressionProp {ev} {eq} {f} {t} {ac} :
-    forall (P : @absState ev eq f t ac) i l x,
+Theorem validExpressionProp :
+    forall (P : absState) i l x,
         In x l ->
         i<>AbsMemberId -> i<>AbsIncludeId ->
-        @validExpression ev eq f t ac P (AbsFun i l) ->
+        validExpression P (AbsFun i l) ->
         validExpression P x.
 Proof.
-    crunch. unfold validExpression in H2.
+    (*crunch. unfold validExpression in H2.
     unfold validExpression. intros. split.
     eapply validKeyVariablesSubterm.
-        apply H2. apply (Id 0). (*crunch*) apply nil. (*crunch?*)
+        apply H2. apply (Id 0). crunch apply nil. crunch?
     crunch. crunch. crunch.
 
     remember (keyVariables (AbsFun i l)). destruct o. 
     intros. eapply H2. reflexivity.
     eapply keyVariablesSubset. crunch. rewrite Heqo. reflexivity.
     crunch. crunch. rewrite <- H3. reflexivity. crunch.
-    assert (@None (list id) <> None). eapply H2. apply x0. apply vars. (*crunch*)
-    elim H3. reflexivity.
-Qed. (* Crunch problems *)
+    assert (@None (list id) <> None). eapply H2. apply x0. apply vars. crunch
+    elim H3. reflexivity.*) admit.
+Admitted. (* Crunch problems *)
 
 (*Theorem validHasAssign {ev} {eq} {f} {t} {ac} {u} :
     forall st v (P: @absState ev eq f t ac) bindings,
@@ -1146,7 +1193,7 @@ Proof.
     unfold keyVariables. crunch. crunch.
 Qed.*)
 
-Fixpoint noMemberExpression {ev} {eq} {f} (e : @absExp ev eq f) :=
+Fixpoint noMemberExpression (e : absExp) :=
     match e with
     | AbsFun x l => (x <> AbsMemberId /\ x <> AbsIncludeId /\
                      (fold_right (fun x y => x /\ y) True (map noMemberExpression l)))
@@ -1168,7 +1215,7 @@ Proof.
 Qed.*)
 
 (*Theorem absEvalSimp2 {ev} {eq} {f} {t} {ac} {u} :
-                     forall y (st : state) v x (e : @absExp ev eq f)
+                     forall y (st : state) v x (e : absExp)
                             (P : @absState ev eq f t ac) bindings,
         supportsBasicFunctionality ev eq f t ac u ->
         None = fst st v ->
@@ -1198,7 +1245,7 @@ Proof.
 
     simpl.
 
-    assert (forall (l : list (@absExp ev eq f)), (map (absEval (override (fst st) v x) (y::bindings))
+    assert (forall (l : list absExp), (map (absEval (override (fst st) v x) (y::bindings))
         (map (fun x0 : absExp => quantifyAbsVar x0 v) l))=
          (map (fun x0 => absEval (override (fst st) v x) (y::bindings) (quantifyAbsVar x0 v)) l)).
         crunch.
@@ -1211,7 +1258,7 @@ Proof.
 
     assert (forall x, In x l -> noMemberExpression x).
         intros. eapply noMemberPropagate. crunch. crunch. 
-    assert (forall (e : @absExp ev eq f), In e l ->
+    assert (forall (e : absExp), In e l ->
         (absEval (override (fst st) v x) (y::bindings)
                  (quantifyAbsVar e v)) =
         (absEval (fst st) bindings e)). crunch.
@@ -1227,7 +1274,7 @@ Proof.
 
         induction ll. crunch.
 
-        unfold subset. fold (@subset (@absExp ev eq f)). crunch.
+        unfold subset. fold (@subset absExp). crunch.
         rewrite H7. rewrite IHll. crunch. crunch. crunch.
 
     rewrite H8. reflexivity.
@@ -1248,13 +1295,13 @@ Proof.
     adxmit.
 Qed.*)
 
-Theorem absEvalAeval {ev} {eq} {f} {t} {ac} {u} :
+Theorem absEvalAeval :
                         forall e (st : state) bindings,
-        supportsBasicFunctionality ev eq f t ac u ->
         (NatValue (aeval st e)) =
-        (absEval (fst st) bindings (@convertToAbsExp ev eq f e)).
+        (absEval (fst st) bindings (convertToAbsExp e)).
 Proof.
-    induction e.
+    admit.
+    (*induction e.
 
     crunch. intros. simpl. reflexivity.
 
@@ -1308,21 +1355,20 @@ Proof.
     crunch. erewrite H0. 3:reflexivity.
     erewrite <- IHe. crunch.
     unfold basicEval. destruct (beq_nat (aeval st e) 0). crunch. crunch.
-    crunch. crunch.
-Qed.
+    crunch. crunch.*)
+Admitted.
 
-Theorem absPredicateCompose {ev} {eq} {f} {t} {ac} {u} :
+Theorem absPredicateCompose :
     forall P p state bindings,
-    supportsBasicFunctionality ev eq f t ac u ->
     realizeState P bindings state ->
-    realizeState (@AbsLeaf ev eq f t ac AbsPredicateId (p::nil)) bindings (fst state,empty_heap) ->
-    realizeState (@AbsStar ev eq f t ac ([p]) P) bindings state.
+    realizeState (AbsLeaf AbsPredicateId (p::nil)) bindings (fst state,empty_heap) ->
+    realizeState (AbsStar ([p]) P) bindings state.
 Proof.
-    crunch. inversion H. crunch. inversion H1. subst. eapply H5 in H13.
+    (*crunch. inversion H. crunch. inversion H1. subst. eapply H5 in H13.
     2:crunch. crunch. inversion H13. subst. clear H13. crunch.
     eapply RSCompose. crunch. crunch. unfold concreteCompose. crunch.
-    left. unfold empty_heap. crunch. crunch.
-Qed.
+    left. unfold empty_heap. crunch. crunch.*) admit.
+Admitted.
 
 (*Theorem validExpressionValue {ev} {eq} {f} {t : id -> list (@Value ev) -> heap -> Prop} {ac} {u} :
         forall e (P : @absState ev eq f t ac) st bindings,
@@ -1488,7 +1534,7 @@ Proof.
     assert (@None (list id) <> None). apply H1. apply (Id 0). apply nil. crunch.
 Qed.*)
 
-Theorem noMemberTheorem {ev} {eq} {f} : forall e, noMemberExpression (@convertToAbsExp ev eq f e).
+Theorem noMemberTheorem : forall e, noMemberExpression (convertToAbsExp e).
 Proof.
     induction e.
 
@@ -1503,88 +1549,88 @@ Proof.
     crunch. intro X. inversion X. intro X. inversion X.
 Qed.
 
-Theorem validExpressionValue {ev} {eq} {f} {t : id -> list (@Value ev) -> heap -> Prop} {ac} {u} { x : supportsBasicFunctionality ev eq f t ac u } :
-    forall e env b, exists x, absEval env b (@convertToAbsExp ev eq f e)=@NatValue ev x.
+Theorem validExpressionValue :
+    forall e env b, exists x, absEval env b (convertToAbsExp e)=NatValue x.
 Proof.
-    induction e.
+    (*induction e.
 
     intros. eapply ex_intro. simpl. reflexivity.
 
     intros. simpl. destruct (env i). eapply ex_intro. reflexivity. eapply ex_intro. reflexivity.
 
     intros. simpl. inversion x. erewrite H. 3:reflexivity. 2:omega.
-    assert (exists x : nat, absEval env b (@convertToAbsExp ev eq f e1) = NatValue x).
+    assert (exists x : nat, absEval env b (convertToAbsExp e1) = NatValue x).
     eapply IHe1. 
-    assert (exists x : nat, absEval env b (@convertToAbsExp ev eq f e2) = NatValue x).
+    assert (exists x : nat, absEval env b (convertToAbsExp e2) = NatValue x).
     eapply IHe2.
     inversion H1. subst. clear H1. inversion H2. subst. clear H2. rewrite H1. rewrite H3.
         simpl. eapply ex_intro. reflexivity.
 
     intros. simpl. inversion x. erewrite H. 3:reflexivity. 2:omega.
-    assert (exists x : nat, absEval env b (@convertToAbsExp ev eq f e1) = NatValue x).
+    assert (exists x : nat, absEval env b (convertToAbsExp e1) = NatValue x).
     eapply IHe1. 
-    assert (exists x : nat, absEval env b (@convertToAbsExp ev eq f e2) = NatValue x).
+    assert (exists x : nat, absEval env b (convertToAbsExp e2) = NatValue x).
     eapply IHe2.
     inversion H1. subst. clear H1. inversion H2. subst. clear H2. rewrite H1. rewrite H3.
         simpl. eapply ex_intro. reflexivity.
 
     intros. simpl. inversion x. erewrite H. 3:reflexivity. 2:omega.
-    assert (exists x : nat, absEval env b (@convertToAbsExp ev eq f e1) = NatValue x).
+    assert (exists x : nat, absEval env b (convertToAbsExp e1) = NatValue x).
     eapply IHe1. 
-    assert (exists x : nat, absEval env b (@convertToAbsExp ev eq f e2) = NatValue x).
+    assert (exists x : nat, absEval env b (convertToAbsExp e2) = NatValue x).
     eapply IHe2.
     inversion H1. subst. clear H1. inversion H2. subst. clear H2. rewrite H1. rewrite H3.
         simpl. eapply ex_intro. reflexivity.
 
     intros. simpl. inversion x. erewrite H. 3:reflexivity. 2:omega.
-    assert (exists x : nat, absEval env b (@convertToAbsExp ev eq f e1) = NatValue x).
+    assert (exists x : nat, absEval env b (convertToAbsExp e1) = NatValue x).
     eapply IHe1. 
-    assert (exists x : nat, absEval env b (@convertToAbsExp ev eq f e2) = NatValue x).
+    assert (exists x : nat, absEval env b (convertToAbsExp e2) = NatValue x).
     eapply IHe2.
     inversion H1. subst. clear H1. inversion H2. subst. clear H2. rewrite H1. rewrite H3.
         simpl. unfold basicEval. remember (beq_nat x0 x1). destruct b0.
         eapply ex_intro. reflexivity. eapply ex_intro. reflexivity.
 
     intros. simpl. inversion x. erewrite H. 3:reflexivity. 2:omega. erewrite H. 3:reflexivity. 2:omega.
-    assert (exists x : nat, absEval env b (@convertToAbsExp ev eq f e1) = NatValue x).
+    assert (exists x : nat, absEval env b (convertToAbsExp e1) = NatValue x).
     eapply IHe1. 
-    assert (exists x : nat, absEval env b (@convertToAbsExp ev eq f e2) = NatValue x).
+    assert (exists x : nat, absEval env b (convertToAbsExp e2) = NatValue x).
     eapply IHe2.
     inversion H1. subst. clear H1. inversion H2. subst. clear H2. rewrite H1. rewrite H3.
         simpl. unfold basicEval. remember (ble_nat x0 x1). destruct b0.
         simpl. eapply ex_intro. reflexivity. simpl. eapply ex_intro. reflexivity.
 
     intros. simpl. inversion x. erewrite H. 3:reflexivity. 2:omega.
-    assert (exists x : nat, absEval env b (@convertToAbsExp ev eq f e1) = NatValue x).
+    assert (exists x : nat, absEval env b (convertToAbsExp e1) = NatValue x).
     eapply IHe1. 
-    assert (exists x : nat, absEval env b (@convertToAbsExp ev eq f e2) = NatValue x).
+    assert (exists x : nat, absEval env b (convertToAbsExp e2) = NatValue x).
     eapply IHe2.
     inversion H1. subst. clear H1. inversion H2. subst. clear H2. rewrite H1. rewrite H3.
         simpl. unfold basicEval. remember (beq_nat x0 0). destruct b0.
         simpl. eapply ex_intro. reflexivity. simpl. eapply ex_intro. reflexivity.
 
     intros. simpl. inversion x. erewrite H. 3:reflexivity. 2:omega.
-    assert (exists x : nat, absEval env b (@convertToAbsExp ev eq f e1) = NatValue x).
+    assert (exists x : nat, absEval env b (convertToAbsExp e1) = NatValue x).
     eapply IHe1. 
-    assert (exists x : nat, absEval env b (@convertToAbsExp ev eq f e2) = NatValue x).
+    assert (exists x : nat, absEval env b (convertToAbsExp e2) = NatValue x).
     eapply IHe2.
     inversion H1. subst. clear H1. inversion H2. subst. clear H2. rewrite H1. rewrite H3.
         simpl. unfold basicEval. remember (beq_nat x0 0). destruct b0.
         simpl. eapply ex_intro. reflexivity. simpl. eapply ex_intro. reflexivity.
 
     intros. simpl. inversion x. erewrite H. 3:reflexivity. 2:omega.
-    assert (exists x : nat, absEval env b (@convertToAbsExp ev eq f e) = NatValue x).
+    assert (exists x : nat, absEval env b (convertToAbsExp e) = NatValue x).
     eapply IHe. 
     inversion H1. subst. clear H1. rewrite H2.
         simpl. unfold basicEval. remember (beq_nat x0 0). destruct b0.
-        simpl. eapply ex_intro. reflexivity. simpl. eapply ex_intro. reflexivity.
-Qed.
+        simpl. eapply ex_intro. reflexivity. simpl. eapply ex_intro. reflexivity.*)
+    admit.
+Admitted.
 
-Theorem assign {ev} {eq} {f} {t : id -> list (@Value ev) -> heap -> Prop} {ac} {u}
-        { x : supportsBasicFunctionality ev eq f t ac u } :
+Theorem assign  :
     forall P v e Q,
-        Q = (@AbsUpdateVar ev eq f t ac P v (convertToAbsExp e)) ->
-        {{ P }} v ::= e {{ Q , NoResult }}.
+        Q = (AbsUpdateVar P v (convertToAbsExp e)) ->
+        {{ P }} v ::= e {{ Q return (#0::nil) with AbsNone }}.
 Proof. admit.
     (*crunch. unfold hoare_triple. unfold absExecute. crunch.
     eapply ex_intro. eapply ex_intro.
@@ -1640,12 +1686,12 @@ Proof. admit.
         crunch. crunch.
 Grab Existential Variables.
     apply x. *)
-Qed.
+Admitted.
 
 Definition id_fun {e} := fun (x:e) => x.
 
 
-Theorem sbasic1 :
+(*Theorem sbasic1 :
     forall x, convertAbsValue (fun _ : unit => tt) x=x.
 Proof. intros. induction x using value_ind'. simpl. reflexivity. simpl.
  reflexivity. simpl. destruct v. reflexivity.
@@ -1662,7 +1708,7 @@ Proof. induction l. simpl. reflexivity.
 Qed. 
 
 Theorem sbasic3 :
-    forall c (e:@absExp unit eq_unit c), (@convertAbsExp unit eq_unit c unit eq_unit c (fun _ : unit => tt) e)=e.
+    forall c (e:absExp), (convertAbsExp e)=e.
 Proof.
     intros. induction e using abs_ind'.
     unfold convertAbsExp. rewrite sbasic1. reflexivity.
@@ -1672,9 +1718,9 @@ Proof.
            induction l. simpl. reflexivity.
            simpl. simpl in H. inversion H. rewrite H0. rewrite IHl. reflexivity. apply H1.
     rewrite H0. reflexivity.
-Qed.
+Qed.*)
 
-Theorem sbasic : supportsBasicFunctionality unit eq_unit unitEval basicState (@basicAccumulate unit eq_unit unitEval) tt.
+(*Theorem sbasic : supportsBasicFunctionality unit eq_unit unitEval basicState (@basicAccumulate unit eq_unit unitEval) tt.
 Proof.
     unfold supportsBasicFunctionality. unfold supportsFunctionality.
     split. intros. unfold unitEval. rewrite sbasic2 in H0. subst. rewrite sbasic1. reflexivity.
@@ -1682,12 +1728,12 @@ Proof.
     split. intros. rewrite sbasic2 in H0. subst. apply H.
     split. intros. rewrite sbasic2 in H0. subst. apply H.
     split. intros. rewrite sbasic2. rewrite sbasic2. rewrite sbasic1. rewrite sbasic3. apply H.
-    intros. rewrite sbasic2. rewrite sbasic2. rewrite sbasic1. rewrite sbasic3. apply H.
-Qed.
+    intros. rewrite sbasic2. rewrite sbasic2. rewrite sbasic1. rewrite sbasic3. apply H. admit.
+Admitted.*)
 
-Hint Resolve sbasic.
+(*Hint Resolve sbasic.*)
 
-Definition basicAssign := @assign unit eq_unit unitEval basicState basicAccumulate tt.
+(*Definition basicAssign := @assign unit eq_unit unitEval basicState basicAccumulate tt.*)
 
 (* **************************************************************************
  *
@@ -1695,33 +1741,46 @@ Definition basicAssign := @assign unit eq_unit unitEval basicState basicAccumula
  *
  ****************************************************************************)
 
-Fixpoint add_cells {ev} {eq} {f} {t} {ac} (n : nat) (base : absState) : absState :=
+Fixpoint add_cells (n : nat) (base : absState) : absState :=
     match n with
     | 0 => base
-    | (S n1) => (@AbsStar ev eq f t ac (v(0)++++#n1 |-> v(n)) (add_cells n1 base))
+    | (S n1) => (AbsStar (v(0)++++#n1 |-> v(n)) (add_cells n1 base))
     end.
 
-Fixpoint n_quant {ev} {eq} {f} {t} {ac} (n : nat) (s : absState) : @absState ev eq f t ac :=
+Fixpoint n_quant (n : nat) (s : absState) : absState :=
     match n with
     | 0 => s
-    | (S n1) => n_quant n1 (@AbsExistsT ev eq f t ac s)
+    | (S n1) => n_quant n1 (AbsExistsT s)
     end.
 
-Fixpoint pushNState {ev} {eq} {f} {t} {ac} (s : @absState ev eq f t ac) (n : nat) :=
+Fixpoint pushNState (s : absState) (n : nat) :=
     match n with
     | 0 => s
-    | S n1 => pushNState (pushAbsVarState s) n1
+    | S n1 => pushNState (addStateVar 0 s) n1
     end.
 
-Theorem new_thm {ev} {eq} {f} {t} {ac} : forall P v size Q,
-    Q = n_quant (S size) (add_cells size
-                                         (@AbsStar ev eq f t ac ([!!v====v(0)])
-                                          (pushNState (AbsExistsT (quantifyAbsVarState P v)) (S size)))) ->
-    {{ P }} (NEW v,(ANum size)) {{ Q , NoResult }}.
+Theorem new_thm : forall P v size Q,
+    Q = n_quant (S size) (AbsExistsT (add_cells size
+                                         (AbsStar ([!!v====v(0)])
+                                          (quantifyAbsVarState (pushNState P (S size)) 1 0 v)))) ->
+    {{ P }} (NEW v,(ANum size)) {{ Q return (#0::nil) with AbsNone }}.
+Proof.
+    admit.
 Admitted.
 
 Ltac new_thm :=
     eapply new_thm;simpl;reflexivity.
+
+Theorem del_thm : forall P v size Q vv,
+    vv = convertToAbsExp v ->
+    Q = AbsMagicWand P (n_quant (S size) (add_cells size ([vv====v(0)]))) ->
+    ((exists s, realizeState P nil s) -> (exists s, realizeState Q nil s)) ->
+    {{ P }} (DELETE v,(ANum size)) {{ Q return (#0::nil) with AbsNone }}.
+Proof. admit. Admitted.
+
+Ltac del_thm :=
+    eapply del_thm;simpl;reflexivity.
+
 
 (* **************************************************************************
  *
@@ -1729,32 +1788,30 @@ Ltac new_thm :=
  *
  ****************************************************************************)
 
-Fixpoint replaceRoot {ev} {eq} {f} {t} {ac} (s : @absState ev eq f t ac) (r : @absState ev eq f t ac) : absState :=
+Fixpoint replaceRoot (s : absState) (r : absState) : absState :=
     match s with
     | AbsExistsT s => AbsExistsT (replaceRoot s r)
     | _ => r
     end.
 
-Fixpoint rootCount {ev} {eq} {f} {t} {ac} (s : @absState ev eq f t ac) : nat :=
+Fixpoint rootCount (s : absState) : nat :=
     match s with
     | AbsExistsT s => S(rootCount s)
     | _ => 0
     end.
 
-Theorem store {ev} {eq} {f} {t} {ac} : forall P r r' x ll l v Q,
-    
-    r = getRoot P ->
+Theorem store : forall P ll l v vv,
     ll = (convertToAbsExp l) ->
-    spickElement r (ll |-> x) r' ->
-    Q = replaceRoot P (@AbsStar ev eq f t ac (ll |-> (convertToAbsExp v)) r') ->
-    {{ P }} CStore l v {{ Q , NoResult }}.
-Proof. admit. Qed.
+    vv = convertToAbsExp v ->
+    (forall s n, realizeState P nil s -> ((NatValue n)=(absEval (env_p s) nil ll) -> (heap_p s) n<>None)) ->
+    {{ P }} CStore l v {{ (AbsUpdateLoc P ll vv) return (#0::nil) with AbsNone }}.
+Proof. admit. Admitted.
 
 Ltac store := eapply store;
               [(simpl;reflexivity)|(simpl;reflexivity)|solveSPickElement|
                (simpl;reflexivity)].
 
-Theorem store_array {ev} {eq} {f} {t} {ac} : forall P r r' (bb : @absExp ev eq f) base ll l v vv var Q size c bb,
+Theorem store_array : forall P r r' (bb : absExp) base ll l v vv var Q size c bb,
     r = getRoot P ->
     c = rootCount P ->
     ll = convertToAbsExp l ->
@@ -1762,9 +1819,9 @@ Theorem store_array {ev} {eq} {f} {t} {ac} : forall P r r' (bb : @absExp ev eq f
     vv = convertToAbsExp v ->
     spickElement r (ARRAY(bb, size, (AbsQVar var))) r' ->
     (forall ss, realizeState P nil ss -> absEval (fst ss) nil (ll <<<< size)=NatValue 1) ->
-    Q = (AbsExistsT (replaceRoot P (@AbsLeaf ev eq f t ac (Id 4) ((pushAbsVar bb)::(pushAbsVar size)::(AbsQVar (var+1))::nil) ** (@AbsLeaf ev eq f t ac (Id 1) ((vv====(nth(AbsQVar (var+1),(pushAbsVar ll))))::nil)) ** (replaceStateExp (AbsQVar (var+1)) (replacenth(AbsQVar (var+1),(pushAbsVar ll),(@AbsQVar ev eq f 0))) (pushAbsVarState r'))))) ->
-    {{ P }} CStore (base+++l) v {{ Q, NoResult }}.
-Proof. admit. Qed.
+    Q = (AbsExistsT (replaceRoot P (AbsLeaf (Id 4) ((addExpVar 0 bb)::(addExpVar 0 size)::(AbsQVar (var+1))::nil) ** (AbsLeaf (Id 1) ((vv====(nth(AbsQVar (var+1),(addExpVar 0 ll))))::nil)) ** (replaceStateExp (AbsQVar (var+1)) (replacenth(AbsQVar (var+1),(addExpVar 0 ll),(AbsQVar 0))) (addStateVar 0 r'))))) ->
+    {{ P }} CStore (base+++l) v {{ Q return (#0::nil) with AbsNone }}.
+Proof. admit. Admitted.
 
 (* **************************************************************************
  *
@@ -1772,26 +1829,77 @@ Proof. admit. Qed.
  *
  ****************************************************************************)
 
+Inductive UnfContext :=
+    | UnfCExistsT : UnfContext
+    | UnfCUpdateVar : id -> absExp -> UnfContext
+    | UnfCUpdateWithLoc : id -> absExp -> UnfContext
+    | UnfCUpdateLoc : absExp -> absExp -> UnfContext
+    | UnfCMagicWand : absState -> UnfContext
+    | UnfCStar : absState -> UnfContext
+    .
+
+Fixpoint getRootTraceLoadTraverse (e:absExp) (s : absState) : option (absState * list UnfContext) :=
+    match s with
+    | AbsExistsT s => match getRootTraceLoadTraverse e s with
+                      | Some (s,l) => Some (s,(UnfCExistsT::l))
+                      | None => None
+                      end
+    | AbsUpdateVar s i v => if hasVarExp e i then None
+                            else match getRootTraceLoadTraverse e s with
+                                 | Some (s,l) => Some (s,((UnfCUpdateVar i v)::l))
+                                 | None => None
+                                 end
+    | AbsUpdateWithLoc s i v => if hasVarExp e i then None
+                                else match getRootTraceLoadTraverse e s with
+                                     | Some (s,l) => Some (s,((UnfCUpdateWithLoc i v)::l))
+                                     | None => None
+                                     end
+    | AbsStar x y => match x,y with
+                     | ([a]),b => match getRootTraceLoadTraverse e b with
+                                  | Some (s,l) => Some (s,(UnfCStar ([a]))::l)
+                                  | None => None
+                                  end
+                     | b,([a]) => match getRootTraceLoadTraverse e b with
+                                  | Some (s,l) => Some (s,(UnfCStar ([a]))::l)
+                                  | None => None
+                                  end
+                     | _,_ => Some (s,nil)
+                     end
+    | AbsUpdateLoc s i v => None
+    (*| AbsMagicWand a b => (UnfCMagicWand b)::(getUnfoldTrace a)*)
+    | _ => Some (s,nil)
+    end.
+
+Fixpoint finishState (s : absState) (l : list (UnfContext)) :=
+    match l with
+    | UnfCExistsT::r => AbsExistsT (finishState s r)
+    | (UnfCUpdateVar i v)::r => (AbsUpdateVar (finishState s r) i v)
+    | (UnfCUpdateWithLoc i v)::r => AbsUpdateWithLoc (finishState s r) i v
+    | (UnfCUpdateLoc i v)::r => AbsUpdateLoc (finishState s r) i v
+    | (UnfCMagicWand d)::r => AbsMagicWand (finishState s r) d
+    | (UnfCStar x)::r => AbsStar (finishState s r) (x)
+    | nil => s
+    end.
 (*
  * This theorem creates a tactic that allows one to retain an inTree relationship after
  * an operation that causes one to traverse a pointer to a child node in a TREE type
  * data structure.  See the proof of loopInvariant for an example of this rule's use.
  *)
-Theorem load_traverse {ev} {eq} {f} {t} {ac} : forall v (r:@absState ev eq f t ac) r' r'' ff vve vv (PPP:@absState ev eq f t ac) Q root heap size fields,
+Theorem load_traverse : forall v (r:absState) r' r'' ff vve vv (PPP:absState) Q t root heap size fields,
     vv = convertToAbsExp vve ->
-    r = getRoot PPP ->
+    Some (r,t) = getRootTraceLoadTraverse (AbsVar v) PPP ->
     spickElement r ([vv inTree heap]) r' ->
     spickElement r' (TREE(root,heap,size,fields)) r'' ->
-    Q = @AbsExistsT ev eq f t ac
-    (@replaceRoot ev eq f t ac PPP
-                             (@AbsStar ev eq f t ac
+    Q = AbsExistsT
+    (finishState
+                             (AbsStar
                                  ([(!!v)====#0 \\//
-                                   (!!v) inTree (quantifyAbsVar heap v)])
+                                   (!!v) inTree (quantifyAbsVar (addExpVar 0 heap) 0 0 v)])
                                  (AbsStar
-                                     ([nth(nth(quantifyAbsVar (find(heap,vv)) v,#(ff+1)),#0)====(@AbsVar ev eq f v)])
-                                     (quantifyAbsVarState r v)))) ->
-    {{ PPP }} CLoad v (APlus vve (ANum ff)) {{ Q, NoResult }}.
-Proof. admit. Qed.
+                                     ([nth(nth(quantifyAbsVar (find((addExpVar 0 heap),vv)) 0 0 v,#(ff+1)),#0)====(AbsVar v)])
+                                     (quantifyAbsVarState r 0 0 v))) t) ->
+    {{ PPP }} CLoad v (APlus vve (ANum ff)) {{ Q return (#0::nil) with AbsNone }}.
+Proof. admit. Admitted.
 
 Ltac load_traverse := eapply load_traverse;[
         (simpl; reflexivity) |
@@ -1800,7 +1908,7 @@ Ltac load_traverse := eapply load_traverse;[
         solveSPickElement |
         (simpl; reflexivity)].
 
-Fixpoint findCell {ev} {eq} {f} {t} {ac} (state : @absState ev eq f t ac) (loc : @absExp ev eq f) :=
+Fixpoint findCell (state : absState) (loc : absExp) :=
    match state with
    | AbsLeaf i (l::val::nil) => if beq_id i AbsCellId && beq_absExp l loc then Some val else None
    | AbsStar l r => match findCell l loc with
@@ -1815,28 +1923,31 @@ Fixpoint findCell {ev} {eq} {f} {t} {ac} (state : @absState ev eq f t ac) (loc :
  * cell value into a variable.  See the loopInvariant proof in TreeTraversal.v for an
  * example of this rule's use.
  *)
-Theorem load {ev} {eq} {f} {t} {ac} : forall (P:@absState ev eq f t ac) v loc (Q:@absState ev eq f t ac) e r,
-    
-    r = getRoot P ->
-    Some e = findCell r (@convertToAbsExp ev eq f loc) ->
-    Q = (AbsExistsT (replaceRoot P (AbsStar
-                           ([(!!v)====(quantifyAbsVar e v)])
-                           (quantifyAbsVarState r v)))) ->
-    {{ P }} CLoad v loc {{ Q , NoResult }}.
-Proof. admit. Qed.
+Theorem load : forall (P:absState) v loc ll,
+    ll = (convertToAbsExp loc) ->
+    {{ P }} CLoad v loc {{ (AbsUpdateWithLoc P v ll) return (#0::nil) with AbsNone }}.
+Proof. admit. Admitted.
 
-Theorem load_array {ev} {eq} {f} {t} {ac} : forall P r r' (bb : @absExp ev eq f) base ll l v var Q size c bb,
+Theorem loadUpdateProp : forall (P:absState) v loc (Q:absState)  vv val,
+    v<>vv ->
+    {{ P }} CLoad v loc {{ Q return (#0::nil) with AbsNone }} ->
+    {{ (AbsUpdateVar P vv val) }} CLoad v loc {{ (AbsUpdateVar Q vv val) return (#0::nil) with AbsNone }}.
+Proof.
+    admit.
+Admitted.
+
+Theorem load_array : forall P r r' (bb : absExp) base ll l v var Q size c bb,
     r = getRoot P ->
     c = rootCount P ->
     ll = convertToAbsExp l ->
     bb = convertToAbsExp base ->
-    spickElement r (@AbsLeaf ev eq f t ac (Id 4) (bb::size::(@AbsQVar ev eq f var)::nil)) r' ->
-    (forall ss, realizeState P nil ss -> absEval (fst ss) nil (ll <<<< size)=@NatValue ev 1) ->
+    spickElement r (AbsLeaf (Id 4) (bb::size::(AbsQVar var)::nil)) r' ->
+    (forall ss, realizeState P nil ss -> absEval (fst ss) nil (ll <<<< size)=@NatValue unit 1) ->
     Q = (AbsExistsT (replaceRoot P (AbsStar
-                           ([(!!v)====(quantifyAbsVar (nth((@AbsQVar ev eq f var),ll)) v)])
-                           (quantifyAbsVarState r v)))) ->
-    {{ P }} CLoad v (base+++l) {{ Q, NoResult }}.
-Proof. admit. Qed.
+                           ([(!!v)====(quantifyAbsVar (nth((AbsQVar var),ll)) 0 0 v)])
+                           (quantifyAbsVarState r 0 0 v)))) ->
+    {{ P }} CLoad v (base+++l) {{ Q return (#0::nil) with AbsNone }}.
+Proof. admit. Admitted.
 
 (* **************************************************************************
  *
@@ -1844,7 +1955,7 @@ Proof. admit. Qed.
  *
  ****************************************************************************)
 
-Fixpoint removeCell {ev} {eq} {f} {t} {ac} (state : @absState ev eq f t ac) (loc : @absExp ev eq f) :=
+Fixpoint removeCell (state : absState) (loc : absExp) :=
    match state with
    | AbsLeaf i (l::val::nil) => if beq_id AbsCellId i && beq_absExp l loc then Some AbsEmpty else None
    | AbsExistsT s => match removeCell s loc with
@@ -1861,7 +1972,7 @@ Fixpoint removeCell {ev} {eq} {f} {t} {ac} (state : @absState ev eq f t ac) (loc
    | _ => None
    end.
 
-Fixpoint removeCells {ev} {eq} {f} {t} {ac} (state : @absState ev eq f t ac) (loc : @absExp ev eq f) (n : nat) :=
+Fixpoint removeCells (state : absState) (loc : absExp) (n : nat) :=
     match n with
     | 0 => Some state
     | S 0 => match removeCell state loc with
@@ -1878,20 +1989,19 @@ Fixpoint removeCells {ev} {eq} {f} {t} {ac} (state : @absState ev eq f t ac) (lo
  * This is the rule for forward propagating over a DELETE statement.  See loopInvariant
  * in TreeTraversal.v for an example of this rule's use.
  *)
-Theorem delete_thm {ev} {eq} {f} {t : id -> list (@Value ev) -> heap -> Prop} {ac} {u}
-    { x : supportsBasicFunctionality ev eq f t ac u } :
-    forall (P:@absState ev eq f t ac) v (loc:@absExp ev eq f) (Q:@absState ev eq f t ac) n exp nn,
+Theorem delete_thm :
+    forall (P:absState) v (loc:absExp) (Q:absState) n exp nn,
     
-    loc = convertAbsExp (fun x => u) (@convertToAbsExp unit eq_unit unitEval v) ->
-    AbsConstVal n = @convertAbsExp unit eq_unit basicEval ev eq f (fun x => u) (@convertToAbsExp unit eq_unit unitEval exp) ->
+    loc = convertAbsExp (convertToAbsExp v) ->
+    AbsConstVal n = convertAbsExp (convertToAbsExp exp) ->
     Some Q = removeCells P loc nn ->
     n = NatValue nn ->
-    {{ P }} DELETE v,exp {{ Q , NoResult }}.
-Proof. admit. Qed.
+    {{ P }} DELETE v,exp {{ Q return (#0::nil) with AbsNone }}.
+Proof. admit. Admitted.
 
-Definition delete_thm_basic := @delete_thm unit eq_unit
+(*Definition delete_thm_basic := @delete_thm unit eq_unit
                                            (@basicEval unit)
-                                           (@basicState unit) (@basicAccumulate unit eq_unit (@basicEval unit)) tt.
+                                           (@basicState unit) (@basicAccumulate unit eq_unit (@basicEval unit)) tt.*)
 
 (* **************************************************************************
  *
@@ -1904,8 +2014,9 @@ Theorem cevalFalse : forall f r st st' b1 c1 c2,
       ceval f st (CIf b1 c1 c2) st' r ->
       ceval f st c2 st' r.
 Proof.
-    intros.  inversion H0. subst. rewrite H in H8. elim H8. reflexivity. subst. apply H9.
-Qed.
+    admit.
+    (*intros.  inversion H0. subst. rewrite H in H8. elim H8. reflexivity. subst. apply H9.*)
+Admitted.
 
 Theorem cevalTrue : forall f r st st' b1 c1 c2,
       aeval st b1 <> 0 ->
@@ -1918,21 +2029,21 @@ Qed.
 (*
  * mergeStates specifies where states need to be merged at the end of processing an if-then-else
  *)
-Definition mergeStates {ev} {eq} {f} {t} {ac} (Q1 : @absState ev eq f t ac) (Q2 : @absState ev eq f t ac) (Q : @absState ev eq f t ac) :=
+Definition mergeStates(Q1 : absState) (Q2 : absState) (Q : absState) :=
     (forall s, realizeState Q1 nil s -> realizeState Q nil s) /\
     (forall s, realizeState Q2 nil s -> realizeState Q nil s).
 
 (*
  * Rule for propagating over an if-then-else
  *)
-Theorem if_statement {ev} {eq} {f} {t} {ac} {u} : forall (P:@absState ev eq f t ac) Q1 Q2 Q b l r res,
-    supportsBasicFunctionality ev eq f t ac u ->
-    {{(AbsStar ([convertToAbsExp b]) P)}}l{{Q1,res}} ->
-    {{(AbsStar ([~~(convertToAbsExp b)]) P)}}r{{Q2,res}} ->
+Theorem if_statement: forall (P:absState) Q1 Q2 Q Q1' Q2' Qm r1 r2 rm b l r,
+    {{(AbsStar ([convertToAbsExp b]) P)}}l{{Q1 return r1 with Q1' }} ->
+    {{(AbsStar ([~~(convertToAbsExp b)]) P)}}r{{Q2 return r2 with Q2' }} ->
+    mergeReturnStates  Q1' Q2' Qm r1 r2 rm ->
     mergeStates Q1 Q2 Q ->
-    {{P}}CIf b l r{{Q,res}}.
-Proof.
-    unfold hoare_triple. unfold mergeStates. unfold absExecute. intros. inversion H2. subst. clear H2.
+    {{P}}CIf b l r{{Q return rm with Qm}}.
+Proof. admit.
+    (*unfold hoare_triple. unfold mergeStates. unfold absExecute. intros. inversion H2. subst. clear H2.
 
     assert (forall (st st' : state), realizeState ([convertToAbsExp b] ** P) nil st ->
                (exists (st'0:state) (r:result),
@@ -2123,8 +2234,8 @@ Proof.
     eapply functional_extensionality. reflexivity.
 
     eapply cevalTrue. instantiate (1 := b). erewrite <- Heqn. intro X. inversion X.
-    eapply H9.
-Qed.
+    eapply H9.*)
+Admitted.
 
 (* **************************************************************************
  *
@@ -2133,8 +2244,7 @@ Qed.
  ****************************************************************************)
 
 
-Theorem while_aux {ev} {eq} {f} {t} {ac} {u} : forall c b ff (invariant: @absState ev eq f t ac) res c1 st1 st1',
-   supportsBasicFunctionality ev eq f t ac u ->
+Theorem while_aux : forall c b ff (invariant: absState) res c1 st1 st1',
    (forall st st' res, realizeState (AbsStar ([convertToAbsExp b]) invariant) nil st ->
                        ceval ff st c st' res ->
                        realizeState invariant nil st') ->
@@ -2143,7 +2253,7 @@ Theorem while_aux {ev} {eq} {f} {t} {ac} {u} : forall c b ff (invariant: @absSta
     ceval ff st1 c1 st1' res ->
     realizeState (AbsStar (match res with | NoResult => [~~(convertToAbsExp b)] | _ => AbsEmpty end) invariant) nil st1'.
 Proof.
-    intros. induction H3.
+    admit. (*intros. induction H3.
 
     inversion H2. inversion H2. inversion H2. inversion H2. inversion H2. inversion H2. inversion H2.
     inversion H2. inversion H2. inversion H2. inversion H2. inversion H2. subst. clear H2.
@@ -2228,18 +2338,17 @@ Proof.
     unfold compose_heaps. simpl. apply functional_extensionality. intros. reflexivity.
 
     inversion H2. inversion H2. inversion H2. inversion H2. inversion H2. inversion H2.
-    inversion H2.
-Qed.
+    inversion H2.*)
+Admitted.
 
-Theorem while_aux2 {ev} {eq} {f} {t} {ac} {u} : forall c b ff (invariant: @absState ev eq f t ac) c1 st1,
-   supportsBasicFunctionality ev eq f t ac u ->
+Theorem while_aux2 : forall c b ff (invariant: absState) c1 st1,
    (forall st, exists st', exists res, realizeState (AbsStar ([convertToAbsExp b]) invariant) nil st ->
                                        ceval ff st c st' res ->
                                        realizeState invariant nil st') ->
     realizeState invariant nil st1 ->
     c1 = (WHILE b DO c LOOP) ->
     (exists st'', exists res', ceval ff st1 c1 st'' res').
-Proof. admit. Qed.
+Proof. admit. Admitted.
 (*    intros. eapply ex_intro. eapply ex_intro.
     induction H1.
     inversion H2. inversion H2. inversion H2. inversion H2. inversion H2. inversion H2. inversion H2.
@@ -2253,11 +2362,10 @@ Proof. admit. Qed.
  * Rule for propagating over a while.  When creating a proof, one will usually have to
  * fill in the expression 'invariant'.
  *)
-Theorem while {ev} {eq} {f} {t} {ac} {u} : forall (state: @absState ev eq f t ac) c b invariant res,
-   supportsBasicFunctionality ev eq f t ac u ->
-   (exists res1, {{AbsStar ([convertToAbsExp b]) invariant}} c {{invariant,res1}}) ->
+Theorem whileThm : forall (state: absState) c b invariant res Q,
+   {{AbsStar ([convertToAbsExp b]) invariant}} c {{invariant return res with Q}} ->
    (forall x, realizeState state nil x -> realizeState invariant nil x) ->
-   {{state}} (WHILE b DO c LOOP) {{AbsStar (match res with | NoResult => [~~(convertToAbsExp b)] | _ => AbsEmpty end) invariant,res}}.
+   {{state}} (WHILE b DO c LOOP) {{ (AbsStar ([~~(convertToAbsExp b)]) invariant) return res with Q}}.
 Proof. admit.
     (*unfold hoare_triple. unfold absExecute. intros.
 
@@ -2309,7 +2417,89 @@ Proof. admit.
         apply H1. apply H2. reflexivity.
 
 Grab Existential Variables. apply NoResult.*)
-Qed.
+Admitted.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

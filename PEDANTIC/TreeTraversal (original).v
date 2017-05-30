@@ -250,15 +250,15 @@ Theorem treeRef1 : forall s n,
     NatValue n = basicEval I (NatValue (env_p s P) :: NatValue 1 :: nil) ->
     heap_p s n <> None.
 Proof.
-    intros s n H H0. eapply stripUpdateVarHypp in H. vm_compute in H.
+    (*intros s n H H0. eapply stripUpdateVarHypp in H. vm_compute in H.
     simpl in H0. Transparent basicEval. unfold basicEval in H0.
     inversion H0; subst; clear H0.
      eapply stateAssertionThm in H. simpl in H.  crunch.
-    destruct s. simpl. simpl in H14.
-    assert (e P + 1 > 0 /\ h (e P + 1) = Some x3).
-    eapply H14. reflexivity. reflexivity.
-    inversion H1; subst; clear H1. erewrite H3. intro X. inversion X.
-Qed.
+    destruct s. simpl. inversion H0; subst; clear H0. erewrite H10. Focus 2.
+    simpl. reflexivity. Focus 2. reflexivity.
+    intro X. inversion X.*)
+ admit.
+Admitted.
 
 
 Theorem treeRef2 : forall s n, (realizeState 
@@ -281,7 +281,7 @@ Theorem treeRef2 : forall s n, (realizeState
          [!! (T) inTree v( 0)])))) N v( 1))))) !! (P) ++++ # 1 !! (T)) nil s) -> NatValue n = basicEval I 
     (NatValue (env_p s P) :: NatValue 0 :: nil) -> heap_p s n <> None.
 Proof.
-    intros s n H H0.
+    (*intros s n H H0.
     eapply stripUpdateVarHypp in H. vm_compute in H.
     simplifyHyp H.
     eapply removeUpdateLocHyp in H. Focus 2. compute. reflexivity.
@@ -290,15 +290,21 @@ Proof.
     eapply stateAssertionThm in H. simpl in H.  crunch.
     assert (forall x, x+0=x).
     intros. induction x9. simpl. reflexivity. simpl. rewrite IHx9. reflexivity.
-    rewrite H0.
-    destruct s. simpl.
-    simpl in H9.
-    assert ((e P) > 0 /\ h (e P) = Some (e N)).
-    apply H9. reflexivity. reflexivity.
-    inversion H1; subst; clear H1. erewrite H7. 
-    intro X. inversion X.
-Qed.
+    rewrite H1.
+    destruct s. simpl. simpl in H10.  inversion H0; subst; clear H0. erewrite H10. Focus 2.
+    reflexivity. Focus 2. reflexivity.
+    intro X. inversion X.*) admit.
+Admitted.
 
+
+Theorem existsRealizeState :
+     forall st st' b s,
+     (realizeState st b s -> realizeState st' b s) ->
+     (exists s, realizeState st b s) ->
+     (exists s, realizeState st' b s).
+Proof.
+    admit.
+Admitted.
 
 Theorem deleteExists1 : forall x, (realizeState 
     (AbsUpdateWithLoc (AbsUpdateWithLoc ([~~ !! (I) ==== # 0] **
@@ -347,7 +353,7 @@ Theorem deleteExists1 : forall x, (realizeState
      v( 0) ++++ # 0 |-> v( 1) **
      [!! (I) ==== v( 0)]))))) nil s).
 Proof.
-    intros x H0.
+    (*intros x H0.
     Set Printing Depth 200.
     propagateExistsHyp H0. propagateExistsHyp H0.
     simplifyHyp H0. eapply stripUpdateVarHypp in H0. vm_compute in H0.
@@ -396,11 +402,9 @@ Proof.
     eapply stateAssertionThm in H. simpl in H.  crunch.
 
     destruct s. simpl in H. simpl. remember (e I).
-    destruct n. inversion H. exists n. reflexivity.
-
-    Grab Existential Variables.
-    apply x.
-Qed.
+    destruct n. inversion H. exists n. reflexivity. *)
+            admit.
+Admitted.
 
 Opaque mergeStates.
 
@@ -463,7 +467,7 @@ mergeStates
                ([nth(find(v(3),v(0)),#2) inTree v(1)])) **
          ([(!!T)====#0 \\// (!!T) inTree v(0)]))))).
 Proof.
-    Set Printing Depth 200.
+    (*Set Printing Depth 200.
     eapply stripUpdateVarLeft. compute. reflexivity.
     eapply stripUpdateVarRight. compute. reflexivity.
     mergePropagateExistsLeft. mergePropagateExistsRight.
@@ -520,11 +524,9 @@ Proof.
     intros. compute in H.
     eapply stateAssertionThm in H. simpl in H.  crunch.
     remember (nth 5 bindings NoValue). destruct y.
-    destruct n. inversion H. exists n. reflexivity. inversion H. inversion H. inversion H.
-
-    Grab Existential Variables.
-    apply nil. apply nil.
-Qed.
+    destruct n. inversion H. exists n. reflexivity. inversion H. inversion H. inversion H.*)
+    admit.
+Admitted.
 
     (*eapply FoldAll. compute. reflexivity. compute. reflexivity. solveSPickElement.
     solveSPickElement. instantiate (3 := (2)). solveSPickElement. stripFields.
@@ -572,7 +574,7 @@ Theorem storeCheck1 : forall s n, realizeState
             (P) !! (N)) Tmp_l !! (T) ++++ # 0) Tmp_r !! (T) ++++ # 1) N v( 1)))))) nil s -> NatValue n = basicEval I 
     (NatValue (env_p s I) :: NatValue 0 :: nil) -> heap_p s n <> None.
 Proof.
-    Set Printing Depth 1000.
+    (*Set Printing Depth 1000.
     intros s n H H0.
     eapply stripUpdateVarHyp in H. Focus 2. compute. reflexivity.
     simplifyHyp H.
@@ -587,8 +589,9 @@ Proof.
     inversion H0; subst; clear H0.
 
     remember (e I). rewrite H7.
-    intro X. inversion X.
-Qed.
+    intro X. inversion X.*)
+    admit.
+Admitted.
 
 Set Printing Depth 1000.
 
@@ -627,7 +630,7 @@ Theorem storeCheck2 : forall s n,
          (env_p s I) :: NatValue 1 :: nil)) ->
      heap_p s n <> None.
 Proof.
-    Set Printing Depth 1000.
+    (*Set Printing Depth 1000.
     intros s n H H0.
 
     eapply stripUpdateVarHyp in H. Focus 2. compute. reflexivity.
@@ -644,8 +647,208 @@ Proof.
     assert ((e I) + 1 > 0 /\ h ((e I)+1) = Some x6).
     eapply H19. unfold override. simpl. reflexivity. reflexivity. inversion H; subst; clear H. inversion H0; subst; clear H0.
 
-    rewrite H3. intro X. inversion X.
-Qed.
+    rewrite H3. intro X. inversion X.*)
+
+    admit.
+Admitted.
+Fixpoint findInTree (v : absExp) (s : absState) : option (absExp * absState) :=
+    match s with
+    | AbsStar a b => match findInTree v a with
+                     | Some (t,a') => Some (t, AbsStar a' b)
+                     | None => match findInTree v b with
+                               | Some (t,b') => Some(t,AbsStar a b')
+                               | None => None
+                               end
+                     end
+    | [ (vv inTree x)] => if beq_absExp v vv then Some (x,AbsEmpty) else None
+    | _ => None
+    end.
+
+Fixpoint findTheTree (v : absExp) (s : absState) : option absState :=
+    match s with
+    | AbsStar a b => match findTheTree v a with
+                     | Some a' => Some a'
+                     | None => match findTheTree v b with
+                               | Some b' => Some b'
+                               | None => None
+                               end
+                     end
+    | (TREE(r,d,n,f)) => if beq_absExp d v then Some (TREE(r,d,n,f)) else None
+    | _ => None
+    end.
+
+Fixpoint propagateLoc2 (v : id) (e : absExp) (s : absState) :=
+    match e with
+    | ((x)++++(#n)) => match findInTree x s with
+                       | None => None
+                       | Some (tf,s') => match findTheTree tf s' with
+                                         | Some (TREE(ee,vv,nn,f)) => if mem_absExp (#n) f then (if hasVarState s' v then
+                              match (substVarState (addStateVar 0 s') v v(0)) with
+                              | Some xx => Some (AbsStar (AbsExistsT xx) (if hasVarExp x v then ([(!!v) inTree (substVar (addExpVar 0 vv) v v(0)) \\// (!!v)====(#0)]) else ([(!!v) inTree (substVar (addExpVar 0 vv) v v(0)) \\// (!!v)====(#0)] ** [x inTree vv])))
+                              | _ => None
+                              end
+                          else
+                              Some (AbsStar s' (if hasVarExp x v then ([(!!v) inTree vv \\// (!!v)====(#0)]) else ([(!!v) inTree vv \\// (!!v)====(#0)] ** [x inTree vv])))) else None
+                                         | _ => None
+                                         end
+                       end
+    | (x) => match findInTree x s with
+                       | None => None
+                       | Some (tf,s') => match findTheTree tf s' with
+                                         | Some (TREE(ee,vv,nn,f)) => if mem_absExp (#0) f then (if hasVarState s' v then
+                              match (substVarState (addStateVar 0 s') v v(0)) with
+                              | Some xx => Some (AbsStar (AbsExistsT xx) (if hasVarExp x v then ([(!!v) inTree (substVar (addExpVar 0 vv) v v(0)) \\// (!!v)====(#0)]) else ([(!!v) inTree (substVar (addExpVar 0 vv) v v(0)) \\// (!!v)====(#0)] ** [x inTree vv])))
+                              | _ => None
+                              end
+                          else
+                              Some (AbsStar s' (if hasVarExp x v then ([(!!v) inTree vv \\// (!!v)====(#0)]) else ([(!!v) inTree vv \\// (!!v)====(#0)] ** [x inTree vv])))) else None
+                                         | _ => None
+                                         end
+                     end
+    end.
+
+Fixpoint propagateLoc (v : id) (e : absExp) (s : absState) :=
+    match e with
+    | ((x)++++(#n)) => match findInTree x s with
+                       | None => None
+                       | Some (tf,s') => match findTheTree tf s' with
+                                         | Some (TREE(ee,vv,nn,f)) => if mem_absExp (#n) f then (if hasVarState s' v then None else Some (AbsStar s' (if hasVarExp x v then ([(!!v) inTree vv \\// (!!v)====(#0)]) else ([(!!v) inTree vv \\// (!!v)====(#0)] ** [x inTree vv])))) else None
+                                         | _ => None
+                                         end
+                       end
+    | (x) => match findInTree x s with
+                       | None => None
+                       | Some (tf,s') => match findTheTree tf s' with
+                                         | Some (TREE(ee,vv,nn,f)) => if mem_absExp (#0) f then (if hasVarState s' v then None else Some (AbsStar s' (if hasVarExp x v then ([(!!v) inTree vv \\// (!!v)====(#0)]) else ([(!!v) inTree vv \\// (!!v)====(#0)] ** [x inTree vv])))) else None
+                                         | _ => None
+                                         end
+                     end
+    end.
+
+Fixpoint removeUpdateWithLocTraverse2 (s : absState) : absState :=
+    match s with
+    | AbsUpdateWithLoc s i v => match propagateLoc2 i v s with
+                                | Some s' => s'
+                                | None => AbsUpdateWithLoc (removeUpdateWithLocTraverse2 s) i v
+                                end
+    | AbsStar l r => AbsStar (removeUpdateWithLocTraverse2 l) (removeUpdateWithLocTraverse2 r)
+    | AbsUpdateLoc s i v => AbsUpdateLoc (removeUpdateWithLocTraverse2 s) i v
+    | AbsUpdateVar s i v => AbsUpdateVar (removeUpdateWithLocTraverse2 s) i v
+    | AbsExistsT s => AbsExistsT (removeUpdateWithLocTraverse2 s)
+    | x => x
+    end.
+
+Fixpoint removeUpdateWithLocTraverse (s : absState) : absState :=
+    match s with
+    | AbsUpdateWithLoc s i v => match propagateLoc i v s with
+                                | Some s' => s'
+                                | None => AbsUpdateWithLoc (removeUpdateWithLocTraverse s) i v
+                                end
+    | AbsStar l r => AbsStar (removeUpdateWithLocTraverse l) (removeUpdateWithLocTraverse r)
+    | AbsUpdateLoc s i v => AbsUpdateLoc (removeUpdateWithLocTraverse s) i v
+    | AbsUpdateVar s i v => AbsUpdateVar (removeUpdateWithLocTraverse s) i v
+    | AbsExistsT s => AbsExistsT (removeUpdateWithLocTraverse s)
+    | x => x
+    end.
+
+Theorem removeUpdateWithLocTraverseLeft : forall l r m,
+    mergeStates (removeUpdateWithLocTraverse l) r m ->
+    mergeStates l r m.
+Proof.
+    admit.
+Admitted.
+
+Theorem removeUpdateWithLocTraverseRight : forall l r m,
+    mergeStates l (removeUpdateWithLocTraverse r) m ->
+    mergeStates l r m.
+Proof.
+    admit.
+Admitted.
+
+Theorem removeUpdateWithLocTraverseLeft2 : forall l r m,
+    mergeStates (removeUpdateWithLocTraverse2 l) r m ->
+    mergeStates l r m.
+Proof.
+    admit.
+Admitted.
+
+Theorem removeUpdateWithLocTraverseRight2 : forall l r m,
+    mergeStates l (removeUpdateWithLocTraverse2 r) m ->
+    mergeStates l r m.
+Proof.
+    admit.
+Admitted.
+
+Fixpoint getConstraints (s : absState) : list absState :=
+    match s with
+    | AbsStar a b => (getConstraints a)++(getConstraints b)
+    | ([x]) => ([x])::nil
+    | _ => nil
+    end.
+
+Fixpoint stripStates v (l : list absState) :=
+    match l with
+    | nil => nil
+    | (a::b) => if hasVarState a v then stripStates v b else a::(stripStates v b)
+    end.
+
+Fixpoint mapRelevantConstraints (v : id) (v' : id) (l : list absState) :=
+    match l with
+    | (f::r) => if hasVarState f v then (replaceStateExp (!!v) (!!v') f)::(mapRelevantConstraints v v' r) else (mapRelevantConstraints v v' r)
+    | nil => nil
+    end.
+
+Fixpoint findPromoteConstraints (v : id) (e : absExp) (s : absState) (l : list absState) : list absState :=
+    match s with
+    | AbsStar a b => (findPromoteConstraints v e a ((getConstraints b)++l))++(findPromoteConstraints v e b ((getConstraints a)++l))
+    | AbsUpdateVar s i vv => stripStates i (findPromoteConstraints v e s (stripStates i l))
+    | AbsUpdateWithLoc s i vv => if beq_absExp e vv then (mapRelevantConstraints i v l) else stripStates i (findPromoteConstraints v e s (stripStates i l))
+    | _ => nil
+    end.
+
+Fixpoint fold_star l root :=
+    match l with
+    | nil => root
+    | (a::b) => fold_star b (root ** a)
+    end.
+
+Fixpoint promoteConstraints (s : absState) : absState :=
+    match s with
+    | AbsUpdateWithLoc s i v => fold_star (findPromoteConstraints i v s nil) (AbsUpdateWithLoc (promoteConstraints s) i v)
+    | AbsStar l r => AbsStar (promoteConstraints l) (promoteConstraints r)
+    | AbsUpdateLoc s i v => AbsUpdateLoc (promoteConstraints s) i v
+    | AbsUpdateVar s i v => AbsUpdateVar (promoteConstraints s) i v
+    | AbsExistsT s => AbsExistsT (promoteConstraints s)
+    | x => x
+    end.
+
+Theorem promoteConstraintsLeft : forall l r m,
+    mergeStates (promoteConstraints l) r m ->
+    mergeStates l r m.
+Proof.
+    admit.
+Admitted.
+
+Theorem promoteConstraintsRight : forall l r m,
+    mergeStates l (promoteConstraints r) m ->
+    mergeStates l r m.
+Proof.
+    admit.
+Admitted.
+
+Fixpoint findCell (l : absExp) (s: absState) : option (absState * absState) :=
+    match s with
+    | AbsStar a b => match findCell l a with
+                     | Some (x,y) => Some(x, AbsStar y b)
+                     | None => match findCell l b with
+                               | Some (x,y) => Some (x, AbsStar a y)
+                               | None => None
+                               end
+                     end
+    | (x |-> y) => if beq_absExp l x then Some ((x |-> y),AbsEmpty) else None
+    | _ => None
+    end.
+
 
 Theorem mergeTheorem2:
 mergeStates 
@@ -700,15 +903,23 @@ mergeStates
         (I) ++++ # 0 !! (N)) Tmp_l !! (T) ++++ # 1) !! (I) ++++ # 1 !! (Tmp_l)) T !! 
      (T) ++++ # 0)
 
-    (AbsExistsT (AbsExistsT (AbsExistsT
-        (TREE(!!RR,v(0),#2,(#0::#1::nil)) **
-         TREE(!!I,v(1),#2,(#0::nil)) **
-         TREE(!!P,AbsQVar 2,#2,(#0::nil)) **
-         (AbsAll (TreeRecords(v(1)))
-               ([nth(find(v(2),v(0)),#2) inTree v(1)])) **
-         (AbsAll (TreeRecords(v(2)))
-               ([nth(find(v(3),v(0)),#2) inTree v(1)])) **
-         ( [(!!T) inTree v(0) \\// (!!T)====#0]))))).
+ (AbsUpdateWithLoc (
+  [~~ !! (Tmp_l) ==== # 0] **
+  [~~ (!! (Tmp_l) ==== # 0 //\\ !! (Tmp_r) ==== # 0)] **
+  AbsUpdateWithLoc (AbsUpdateWithLoc (AbsUpdateLoc (AbsUpdateLoc (AbsExistsT
+      (AbsExistsT
+       (AbsExistsT
+        (v( 0) ++++ # 1 |-> v( 2) **
+         v( 0) |-> v( 1) **
+         AbsExistsT
+         (AbsUpdateVar ([!! (P) ==== v( 1)] **
+           [# 0 <<<< !! (T)] **
+           AbsExistsT
+           (TREE( !! (RR), v(0), # 2, # 0 :: # 1 :: nil) **
+            TREE( !! (I), v( 1), # 2, # 0 :: nil) **
+            TREE( v( 0), v( 2), # 2, # 0 :: nil) **
+            [!! (T) inTree !! (P)])) N v( 0)))))) !! (P) ++++ # 1 !! (T)) !! (P) !! 
+        (N)) Tmp_l !! (T) ++++ # 0) Tmp_r !! (T) ++++ # 1) T !! (T) ++++ # 0).
 Proof.
     eapply mergeImplies.
     mergeSimplifyLeft. mergeSimplifyRight.
@@ -734,40 +945,8 @@ Proof.
     eapply mergeSimplifyRight. compute. reflexivity.
     eapply removeUpdateWithLocTraverseRight2. compute.
     mergeSimplifyRight.
-    mergeSimplifyRight.
-    mergePropagateExistsRight.
-    eapply foldRight. foldHeap (!!P) (0::nil) 2.
-    eapply foldAllRight. foldAll 2.
-    eapply foldRight. foldHeap (!!I) (0::nil) 2.
-    eapply foldAllRight. foldAll 2.
-    mergeSimplifyRight.
-    mergeSimplifyRight.
-    eapply removeUpdateWithLocTraverseLeft2. compute.
-    mergeSimplifyLeft.
-    mergePropagateExistsLeft.
-    eapply foldLeft. foldHeap (!!P) (0::nil) 2.
-    eapply foldAllLeft. foldAll 2.
-    mergeSimplifyLeft.
-    mergePropagateExistsLeft.
-
-    eapply reverseOrLeft. compute.
-    eapply reverseOrRight. compute.
-
-    startMerge.
-
-    doMergeStates.
-
-    finishMerge. compute. 
-
-    intros.
-    eapply stateImplication. apply H. compute. reflexivity. compute. reflexivity.
-    prove_implication. compute. reflexivity. compute. reflexivity. simpl.
-    intros. eapply ex_intro.
-    eapply emptyRealizeState. compute. reflexivity.
-
-    Grab Existential Variables.
-    apply nil. apply nil.
-Qed.
+    admit.
+Admitted.
 
 Theorem mergeTheorem3:
 mergeStates 
@@ -776,73 +955,53 @@ mergeStates
   AbsUpdateWithLoc (AbsUpdateWithLoc (AbsUpdateLoc (AbsUpdateLoc (AbsExistsT
       (AbsExistsT
        (AbsExistsT
-        (AbsUpdateVar (!! (P) ++++ # 1 |-> v( 2) **
-          !! (P) |-> v( 1) **
-          [!! (P) ==== v( 0)] **
-          [# 0 <<<< !! (T)] **
-          AbsExistsT
-          (AbsExistsT
-           (AbsExistsT
-            (TREE( !! (RR), v( 0), # 2, # 0 :: # 1 :: nil) **
-             TREE( !! (I), v( 1), # 2, # 0 :: nil) **
-             TREE( v( 4), v( 2), # 2, # 0 :: nil) **
-             AbsAll TreeRecords( v( 1)) ([nth( find( v( 2), v( 0)), # 2) inTree v( 1)]) **
-             AbsAll TreeRecords( v( 2)) ([nth( find( v( 3), v( 0)), # 2) inTree v( 1)]) **
-             
-             [!! (T) inTree v( 0)])))) N v( 1))))) !! (P) ++++ # 1 !! (T)) !! (P) !! 
-        (N)) Tmp_l !! (T) ++++ # 0) Tmp_r !! (T) ++++ # 1) T !! (T) ++++ # 1) (AbsExistsT
- (AbsExistsT
-  (AbsExistsT
-   (TREE( !! (RR), v( 0), # 2, # 0 :: # 1 :: nil) **
-    TREE( !! (I), v( 1), # 2, # 0 :: nil) **
-    TREE( !! (P), v( 2), # 2, # 0 :: nil) **
-    AbsAll TreeRecords( v( 1)) ([nth( find( v( 2), v( 0)), # 2) inTree v( 1)]) **
-    AbsAll TreeRecords( v( 2)) ([nth( find( v( 3), v( 0)), # 2) inTree v( 1)]) **
-    [!! (T) inTree v( 0) \\// !! (T) ==== # 0]))))
- (AbsExistsT
-  (AbsExistsT
-  (AbsExistsT
-   (TREE( !! (RR), v( 0), # 2, # 0 :: # 1 :: nil) **
-    TREE( !! (I), v( 1), # 2, # 0 :: nil) **
-    TREE( !! (P), v( 2), # 2, # 0 :: nil) **
-    AbsAll TreeRecords( v( 1)) ([nth( find( v( 2), v( 0)), # 2) inTree v( 1)]) **
-    AbsAll TreeRecords( v( 2)) ([nth( find( v( 3), v( 0)), # 2) inTree v( 1)]) **
-    [!! (T) inTree v( 0) \\// !! (T) ==== # 0])))).
+        (v( 0) ++++ # 1 |-> v( 2) **
+         v( 0) |-> v( 1) **
+         AbsExistsT
+         (AbsUpdateVar ([!! (P) ==== v( 1)] **
+           [# 0 <<<< !! (T)] **
+           AbsExistsT
+           (TREE( !! (RR), !! (P), # 2, # 0 :: # 1 :: nil) **
+            TREE( !! (I), v( 3), # 2, # 0 :: nil) **
+            TREE( v( 0), v( 4), # 2, # 0 :: nil) **
+            [!! (T) inTree !! (P)])) N v( 0)))))) !! (P) ++++ # 1 !! (T)) !! (P) !! 
+        (N)) Tmp_l !! (T) ++++ # 0) Tmp_r !! (T) ++++ # 1) T !! (T) ++++ # 1) (AbsUpdateWithLoc 
+     ([~~ !! (Tmp_l) ==== # 0] **
+  [~~ (!! (Tmp_l) ==== # 0 //\\ !! (Tmp_r) ==== # 0)] **
+  AbsUpdateWithLoc (AbsUpdateWithLoc (AbsUpdateLoc (AbsUpdateLoc (AbsExistsT
+      (AbsExistsT
+       (AbsExistsT
+        (v( 0) ++++ # 1 |-> v( 2) **
+         v( 0) |-> v( 1) **
+         AbsExistsT
+         (AbsUpdateVar ([!! (P) ==== v( 1)] **
+           [# 0 <<<< !! (T)] **
+           AbsExistsT
+           (TREE( !! (RR), !! (P), # 2, # 0 :: # 1 :: nil) **
+            TREE( !! (I), v( 3), # 2, # 0 :: nil) **
+            TREE( v( 0), v( 4), # 2, # 0 :: nil) **
+            [!! (T) inTree !! (P)])) N v( 0)))))) !! (P) ++++ # 1 !! (T)) !! (P) !! 
+        (N)) Tmp_l !! (T) ++++ # 0) Tmp_r !! (T) ++++ # 1) T !! (T) ++++ # 0)
+
+     ([~~ !! (Tmp_l) ==== # 0] **
+  [~~ (!! (Tmp_l) ==== # 0 //\\ !! (Tmp_r) ==== # 0)] **
+  AbsUpdateWithLoc (AbsUpdateWithLoc (AbsUpdateLoc (AbsUpdateLoc (AbsExistsT
+      (AbsExistsT
+       (AbsExistsT
+        (v( 0) ++++ # 1 |-> v( 2) **
+         v( 0) |-> v( 1) **
+         AbsExistsT
+         (AbsUpdateVar ([!! (P) ==== v( 1)] **
+           [# 0 <<<< !! (T)] **
+           AbsExistsT
+           (TREE( !! (RR), !! (P), # 2, # 0 :: # 1 :: nil) **
+            TREE( !! (I), v( 3), # 2, # 0 :: nil) **
+            TREE( v( 0), v( 4), # 2, # 0 :: nil) **
+            [!! (T) inTree !! (P)])) N v( 0)))))) !! (P) ++++ # 1 !! (T)) !! (P) !! 
+        (N)) Tmp_l !! (T) ++++ # 0) Tmp_r !! (T) ++++ # 1).
 Proof.
-    eapply mergeImplies.
-
-    mergeSimplifyLeft.
-    eapply stripUpdateVarLeft. compute. reflexivity.
-    mergePropagateExistsLeft.
-    eapply removeUpdateLocLeft. compute. reflexivity.
-    eapply removeUpdateLocLeft. compute. reflexivity.
-    eapply mergeStripVarLeft. instantiate (1 := Tmp_l). compute. reflexivity.
-    eapply mergeStripVarLeft. instantiate (1 := Tmp_r). compute. reflexivity.
-    eapply removeUpdateWithLocTraverseLeft2. compute.
-    mergeSimplifyLeft.
-    mergePropagateExistsLeft.
-    eapply foldLeft. foldHeap (!!P) (0::nil) 2.
-    eapply foldAllLeft. foldAll 2.
-    mergeSimplifyLeft.
-    mergePropagateExistsLeft.
-
-    eapply reverseOrLeft. compute.
-    eapply reverseOrRight. compute.
-
-    startMerge.
-
-    doMergeStates.
-
-    finishMerge. compute. 
-
-    intros.
-    eapply stateImplication. apply H. compute. reflexivity. compute. reflexivity.
-    prove_implication. compute. reflexivity. compute. reflexivity. simpl.
-    intros. eapply ex_intro.
-    eapply emptyRealizeState. compute. reflexivity.
-
-    Grab Existential Variables. apply nil. apply nil.
-Qed.
+    admit.
+Admitted.
 
 Theorem mergeTheorem4:
 mergeStates 
@@ -852,59 +1011,37 @@ mergeStates
    (TREE( !! (RR), v( 0), # 2, # 0 :: # 1 :: nil) **
     TREE( !! (I), v( 1), # 2, # 0 :: nil) **
     TREE( !! (P), v( 2), # 2, # 0 :: nil) **
-    AbsAll TreeRecords( v( 1)) ([nth( find( v( 2), v( 0)), # 2) inTree v( 1)]) **
-    AbsAll TreeRecords( v( 2)) ([nth( find( v( 3), v( 0)), # 2) inTree v( 1)]) **
-    [!! (T) ==== # 0 \\// !! (T) inTree v( 0)])))) (AbsExistsT
+    AbsAll TreeRecords( v( 1)) ([nth( find( v( 1), v( 3)), # 2) inTree v( 0)]) **
+    AbsAll TreeRecords( v( 2)) ([nth( find( v( 2), v( 3)), # 2) inTree v( 0)]) **
+    [!! (T) ==== # 0 \\// !! (T) inTree v( 0)])))) ([~~ !! (Tmp_l) ==== # 0] **
+ [~~ (!! (Tmp_l) ==== # 0 //\\ !! (Tmp_r) ==== # 0)] **
+ AbsUpdateWithLoc (AbsUpdateWithLoc (AbsUpdateLoc (AbsUpdateLoc (AbsExistsT
+     (AbsExistsT
+      (AbsExistsT
+       (v( 0) ++++ # 1 |-> v( 2) **
+        v( 0) |-> v( 1) **
+        AbsExistsT
+        (AbsUpdateVar ([!! (P) ==== v( 1)] **
+          [# 0 <<<< !! (T)] **
+          AbsExistsT
+          (TREE( !! (RR), !! (P), # 2, # 0 :: # 1 :: nil) **
+           TREE( !! (I), v( 3), # 2, # 0 :: nil) **
+           TREE( v( 0), v( 4), # 2, # 0 :: nil) **
+           [!! (T) inTree !! (P)])) N v( 0)))))) !! (P) ++++ # 1 !! (T)) !! (P) !! 
+       (N)) Tmp_l !! (T) ++++ # 0) Tmp_r !! (T) ++++ # 1)
+
+    (AbsExistsT
  (AbsExistsT
   (AbsExistsT
    (TREE( !! (RR), v( 0), # 2, # 0 :: # 1 :: nil) **
     TREE( !! (I), v( 1), # 2, # 0 :: nil) **
     TREE( !! (P), v( 2), # 2, # 0 :: nil) **
-    AbsAll TreeRecords( v( 1)) ([nth( find( v( 2), v( 0)), # 2) inTree v( 1)]) **
-    AbsAll TreeRecords( v( 2)) ([nth( find( v( 3), v( 0)), # 2) inTree v( 1)]) **
-    [!! (T) inTree v( 0) \\// !! (T) ==== # 0]))))
- (AbsExistsT
- (AbsExistsT
-  (AbsExistsT
-   (TREE( !! (RR), v( 0), # 2, # 0 :: # 1 :: nil) **
-    TREE( !! (I), v( 1), # 2, # 0 :: nil) **
-    TREE( !! (P), v( 2), # 2, # 0 :: nil) **
-    AbsAll TreeRecords( v( 1)) ([nth( find( v( 2), v( 0)), # 2) inTree v( 1)]) **
-    AbsAll TreeRecords( v( 2)) ([nth( find( v( 3), v( 0)), # 2) inTree v( 1)]) **
-    [!! (T) inTree v( 0) \\// !! (T) ==== # 0])))).
+    AbsAll TreeRecords( v( 1)) ([nth( find( v( 1), v( 3)), # 2) inTree v( 0)]) **
+    AbsAll TreeRecords( v( 2)) ([nth( find( v( 2), v( 3)), # 2) inTree v( 0)]) **
+    [!! (T) ==== # 0 \\// !! (T) inTree v( 0)])))).
 Proof.
-    eapply mergeImplies.
-
-    startMerge.
-    doMergeStates.
-    eapply DMImplyPredicates1. compute.
-    eapply PESComposeRight. eapply PESComposeRight. eapply PESComposeRight.
-    eapply PESComposeRight. eapply PESComposeRight. eapply PESR.
-    compute. reflexivity.
-
-    intros.
-    simplify.
-    eapply stateAssertionThm in H0. simpl in H0.  crunch.
-    inversion H5; subst; clear H5.
-
-    eapply RSOrComposeR. eapply RSR. compute. Transparent basicEval.
-    simpl. rewrite H0. simpl. reflexivity. eapply BTStatePredicate.
-    intro X. inversion X.
-    compute. reflexivity.
-    eapply RSOrComposeL. eapply RSR. simpl.
-    rewrite H0. simpl. reflexivity. eapply BTStatePredicate.
-    intro X. inversion X.
-    compute. reflexivity.
-
-    finishMerge.
-
-    intros.
-    eapply stateImplication. apply H. compute. reflexivity. compute. reflexivity.
-    prove_implication. compute. reflexivity. compute. reflexivity. simpl.
-    intros. eapply ex_intro.
-    eapply emptyRealizeState. compute. reflexivity.
-    Grab Existential Variables. apply nil. apply nil.
-Qed.
+    admit.
+Admitted.
 
 Theorem implication1:
 forall s : state, realizeState 
@@ -914,34 +1051,20 @@ forall s : state, realizeState
    (TREE( !! (RR), v( 0), # 2, # 0 :: # 1 :: nil) **
     TREE( !! (I), v( 1), # 2, # 0 :: nil) **
     TREE( !! (P), v( 2), # 2, # 0 :: nil) **
-    AbsAll TreeRecords( v( 1)) ([nth( find( v( 2), v( 0)), # 2) inTree v( 1)]) **
-    AbsAll TreeRecords( v( 2)) ([nth( find( v( 3), v( 0)), # 2) inTree v( 1)]) **
-    [!! (T) inTree v( 0) \\// !! (T) ==== # 0])))) nil s -> realizeState (AbsExistsT
+    AbsAll TreeRecords( v( 1)) ([nth( find( v( 1), v( 3)), # 2) inTree v( 0)]) **
+    AbsAll TreeRecords( v( 2)) ([nth( find( v( 2), v( 3)), # 2) inTree v( 0)]) **
+    [!! (T) ==== # 0 \\// !! (T) inTree v( 0)])))) nil s -> realizeState (AbsExistsT
  (AbsExistsT
   (AbsExistsT
    (TREE( !! (RR), v( 0), # 2, # 0 :: # 1 :: nil) **
     TREE( !! (I), v( 1), # 2, # 0 :: nil) **
     TREE( !! (P), v( 2), # 2, # 0 :: nil) **
-    AbsAll TreeRecords( v( 1)) ([nth( find( v( 2), v( 0)), # 2) inTree v( 1)]) **
-    AbsAll TreeRecords( v( 2)) ([nth( find( v( 3), v( 0)), # 2) inTree v( 1)]) **
+    AbsAll TreeRecords( v( 1)) ([nth( find( v( 1), v( 3)), # 2) inTree v( 0)]) **
+    AbsAll TreeRecords( v( 2)) ([nth( find( v( 2), v( 3)), # 2) inTree v( 0)]) **
     [!! (T) ==== # 0 \\// !! (T) inTree v( 0)])))) nil s.
 Proof.
-    intros.
-    eapply stateImplication. apply H. compute. reflexivity. compute. reflexivity.
-    prove_implication. compute. reflexivity. compute. reflexivity. simpl.
-    intros. eapply ex_intro. simplify.
-    eapply stateAssertionThm in H1. simpl in H1.  crunch.
-    inversion H6; subst; clear H6.
-
-    eapply RSOrComposeR. eapply RSR. Transparent basicEval.
-    simpl. rewrite H7. simpl. reflexivity. eapply BTStatePredicate.
-    intro X. inversion X.
-    compute. reflexivity.
-    eapply RSOrComposeL. eapply RSR. simpl.
-    rewrite H7. simpl. reflexivity. eapply BTStatePredicate.
-    intro X. inversion X.
-    compute. reflexivity.
-Qed.
+    admit.
+Admitted.
 
 Theorem implication2:
 forall x : state, realizeState 
@@ -951,13 +1074,12 @@ forall x : state, realizeState
    (TREE( !! (RR), v( 0), # 2, # 0 :: # 1 :: nil) **
     TREE( !! (I), v( 1), # 2, # 0 :: nil) **
     TREE( !! (P), v( 2), # 2, # 0 :: nil) **
-    AbsAll TreeRecords( v( 1)) ([nth( find( v( 2), v( 0)), # 2) inTree v( 1)]) **
-    AbsAll TreeRecords( v( 2)) ([nth( find( v( 3), v( 0)), # 2) inTree v( 1)]) **
+    AbsAll TreeRecords( v( 1)) ([nth( find( v( 1), v( 3)), # 2) inTree v( 0)]) **
+    AbsAll TreeRecords( v( 2)) ([nth( find( v( 2), v( 3)), # 2) inTree v( 0)]) **
     [!! (T) ==== # 0 \\// !! (T) inTree v( 0)])))) nil x -> realizeState loopInv nil x.
 Proof.
-    unfold loopInv.
-    eapply mergeSame.
-Qed.
+    admit.
+Admitted.
 
 Theorem implication3:
 forall s : state, realizeState 
@@ -968,16 +1090,11 @@ forall s : state, realizeState
    (TREE( !! (RR), v( 0), # 2, # 0 :: # 1 :: nil) **
     TREE( !! (I), v( 1), # 2, # 0 :: nil) **
     TREE( !! (P), v( 2), # 2, # 0 :: nil) **
-    AbsAll TreeRecords( v( 2)) ([nth( find( v( 3), v( 0)), # 2) inTree v( 1)]) **
+    AbsAll TreeRecords( v( 2)) ([nth( find( v( 2), v( 3)), # 2) inTree v( 0)]) **
     [!! (T) ==== # 0])))) nil s.
 Proof.
-    unfold loopInv. simpl. intros.
-    simplifyHyp H. propagateExistsHyp H. propagateExistsHyp H. propagateExistsHyp H.
-    eapply stateImplication. apply H. compute. reflexivity. compute. reflexivity.
-    prove_implication. compute. reflexivity. compute. reflexivity. simpl.
-    intros. eapply ex_intro. eapply emptyRealizeState. compute. reflexivity.
-    Grab Existential Variables. apply nil.
-Qed.
+    admit.
+Admitted.
 
 Theorem loopInvariant :
     {{afterInitAssigns}}loop{{afterWhile return nil with AbsNone}}.
@@ -1006,13 +1123,13 @@ Proof.
     simpl.*)
 
     (* CStore ((!P)+++(ANum F_p)) (!T)) *)
-    eapply compose. eapply store. compute. reflexivity. compute. reflexivity.
-    intros. eapply treeRef1. apply H. apply H0.
+    eapply compose. pcrunch.
+    apply treeRef1. apply H. apply H0.
 
 
     (* CStore ((!P)+++(ANum F_n)) (!N)) *)
-    eapply compose.  eapply store. compute. reflexivity. compute. reflexivity.
-    eapply treeRef2. (*apply H. apply H0.*)
+    eapply compose. pcrunch.
+    apply treeRef2. apply H. apply H0.
 
     simp.
 
@@ -1052,8 +1169,6 @@ Proof.
         (* FI *)
         apply mergeTheorem1.
 
-    (* ELSE *) 
-
         (* (CIf (!Tmp_l === A0) *)
         simpl.
         eapply if_statement.
@@ -1078,15 +1193,15 @@ Proof.
                 eapply compose. pcrunch.
 
                 (* CStore (I ++++ A0) (!N) *)
-                eapply compose. eapply store. compute. reflexivity. compute. reflexivity.
-                eapply storeCheck1. (*apply H. apply H0.*)
+                eapply compose. pcrunch.
+                apply storeCheck1. apply H. apply H0.
 
                 (* CLoad Tmp_l (! T +++ A1) *)
                 eapply compose. pcrunch.
 
                 (* CStore (! I +++ A1) (! Tmp_l) *)
-                eapply compose. eapply store. compute. reflexivity. compute. reflexivity.
-                apply storeCheck2. (*apply H. apply H0.*)
+                eapply compose. pcrunch.
+                apply storeCheck2. apply H. apply H0.
 
                 (* (CLoad T (! T +++ A0) *)
                 pcrunch.
@@ -1117,46 +1232,7 @@ Proof.
     intros. apply H.
     intros. inversion H.
 
-    Grab Existential Variables.
-
-    apply nil.
-
-Qed.
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+Admitted.
 
 
 

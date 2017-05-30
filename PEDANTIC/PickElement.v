@@ -24,7 +24,6 @@ Require Export ImpHeap.
 Require Export AbsState.
 Require Export AbsStateInstance.
 Require Export Coq.Logic.FunctionalExtensionality.
-Opaque unitEval.
 
 Fixpoint delete_nat (n : nat) (l : list nat) :=
     match l with
@@ -57,15 +56,15 @@ Fixpoint no_second (x : nat) (l : list (nat * nat)) : bool :=
     | _ => true
     end.
 
-Fixpoint noQVarExp {ev} {eq} {f} (e : @absExp ev eq f) : bool :=
+Fixpoint noQVarExp (e : absExp) : bool :=
    match e with
    | AbsConstVal v => true
    | AbsVar v => true
    | AbsQVar vv => false
-   | AbsFun i l => (fix go (l : list (@absExp ev eq f)) := match l with | nil => true | (f::r) => if noQVarExp f then go r else false end) l
+   | AbsFun i l => (fix go (l : list absExp) := match l with | nil => true | (f::r) => if noQVarExp f then go r else false end) l
    end.
 
-Fixpoint noQVarState {ev} {eq} {f} {t} {ac} (s : @absState ev eq f t ac) : bool :=
+Fixpoint noQVarState (s : absState) : bool :=
    match s with
     | AbsStar s1 s2 => if noQVarState s1 then noQVarState s2 else false
     | AbsOrStar s1 s2 => if noQVarState s1 then noQVarState s2 else false
@@ -74,35 +73,40 @@ Fixpoint noQVarState {ev} {eq} {f} {t} {ac} (s : @absState ev eq f t ac) : bool 
     | AbsAll e s => if noQVarExp e then noQVarState s else false
     | AbsEach e s => if noQVarExp e then noQVarState s else false
     | AbsEmpty => true
-    | AbsLeaf i l =>  (fix go (l : list (@absExp ev eq f)) := match l with | nil => true | (f::r) => if noQVarExp f then go r else false end) l
+    | AbsAny => true
+    | AbsNone => true
+    | AbsLeaf i l =>  (fix go (l : list absExp) := match l with | nil => true | (f::r) => if noQVarExp f then go r else false end) l
     | AbsAccumulate id e1 e2 e3 =>
           if noQVarExp e1 then
           if noQVarExp e2 then
           noQVarExp e3 else false else false
    | AbsMagicWand s1 s2 => if noQVarState s1 then noQVarState s2 else false
    | AbsUpdateVar s i e => if noQVarExp e then noQVarState s else false
+   | AbsUpdateWithLoc s i e => if noQVarExp e then noQVarState s else false
+   | AbsUpdateLoc s l e => if noQVarExp l then if noQVarExp e then noQVarState s else false else false
    | AbsUpdState s1 s2 s3 => if noQVarState s1 then if noQVarState s2 then noQVarState s3 else false else false
+   | AbsClosure s l =>  (fix go (l : list absExp) := match l with | nil => true | (f::r) => if noQVarExp f then go r else false end) l
    end.
 
-Fixpoint mem_absExp {ev} {eq} {f} (e : absExp) (l : list (@absExp ev eq f)) :=
+Fixpoint mem_absExp (e : absExp) (l : list absExp) :=
     match l with
     | (f::r) => if beq_absExp e f then true else mem_absExp e r
     | _ => false
     end.
 
-Fixpoint common_element {ev} {eq} {f} (l1 : list (@absExp ev eq f)) (l2 : list (@absExp ev eq f)) : option (@absExp ev eq f) :=
+Fixpoint common_element (l1 : list absExp) (l2 : list absExp) : option absExp :=
     match l1 with
     | (f::r) => if (mem_absExp f l2) then Some f else common_element r l2
     | _ => None
     end.
 
-Fixpoint equiv_absExp2 {ev} {eq} {f} (e1 : (@absExp ev eq f)) (e2 : (@absExp ev eq f)) (s1 : list (@absExp ev eq f)) (equiv2 : list (list (@absExp ev eq f))) : option (@absExp ev eq f) :=
+Fixpoint equiv_absExp2 (e1 : absExp) (e2 : absExp) (s1 : list absExp) (equiv2 : list (list absExp)) : option absExp :=
     match equiv2 with
     | (f::r) => if mem_absExp e2 f then common_element s1 f else equiv_absExp2 e1 e2 s1 r
     | _ => if mem_absExp e2 s1 then Some e2 else None
     end.
 
-Fixpoint equiv_absExp {ev} {eq} {f} (e1 : (@absExp ev eq f)) (e2 : (@absExp ev eq f)) (equiv1 : list (list (@absExp ev eq f))) (equiv2 : list (list (@absExp ev eq f))) : option (@absExp ev eq f) :=
+Fixpoint equiv_absExp (e1 : absExp) (e2 : absExp) (equiv1 : list (list absExp)) (equiv2 : list (list absExp)) : option absExp :=
     match equiv1 with
     | (f::r) => if mem_absExp e1 f then equiv_absExp2 e1 e2 f equiv2 else equiv_absExp e1 e2 r equiv2
     | _ => equiv_absExp2 e1 e2 (e1::nil) equiv2
@@ -131,11 +135,11 @@ Fixpoint ml (n : nat) (pairs : list (nat * nat)) : option nat :=
 Fixpoint strip_pair (n1 : nat) (n2 : nat) (pairs : list (nat * nat)) : list (nat * nat) :=
     match pairs with
     | nil => nil
-    | ((a,b)::r) => if beq_nat n1 a then if beq_nat n2 b then strip_pair n1 n2 r
-                    else ((a,b)::(strip_pair n1 n2 r)) else ((a,b)::(strip_pair n1 n2 r))
+    | ((S a,S b)::r) => ((a,b)::(strip_pair n1 n2 r))
+    | (_::r) => strip_pair n1 n2 r
     end.
 
-Fixpoint mapExpLeft {ev} {eq} {f} (t1 : nat) (t2 : nat) (pairs : list (nat * nat)) (e : @absExp ev eq f) : option (@absExp ev eq f) :=
+Fixpoint mapExpLeft (t1 : nat) (t2 : nat) (pairs : list (nat * nat)) (e : absExp) : option absExp :=
    match e with
    | AbsConstVal v => Some (AbsConstVal v)
    | AbsVar v => Some (AbsVar v)
@@ -146,7 +150,7 @@ Fixpoint mapExpLeft {ev} {eq} {f} (t1 : nat) (t2 : nat) (pairs : list (nat * nat
                        | Some x => Some (AbsQVar x)
                        | None => None
                        end
-   | AbsFun i l => match (fix go (l : list (@absExp ev eq f)) :=
+   | AbsFun i l => match (fix go (l : list absExp) :=
                               match l with
                               | nil => Some nil
                               | (f::r) => match (mapExpLeft t1 t2 pairs f,go r) with
@@ -159,7 +163,7 @@ Fixpoint mapExpLeft {ev} {eq} {f} (t1 : nat) (t2 : nat) (pairs : list (nat * nat
                    end
    end.
 
-Fixpoint mapStateLeft {ev} {eq} {f} {t} {ac} (t1 : nat) (t2 : nat) (pairs : list (nat * nat)) (s : @absState ev eq f t ac) : option (@absState ev eq f t ac) :=
+Fixpoint mapStateLeft (t1 : nat) (t2 : nat) (pairs : list (nat * nat)) (s : absState) : option absState :=
    match s with
     | AbsStar s1 s2 => match mapStateLeft t1 t2 pairs s1,mapStateLeft t1 t2 pairs s2 with
                        | Some s1,Some s2 => Some (AbsStar s1 s2)
@@ -186,7 +190,7 @@ Fixpoint mapStateLeft {ev} {eq} {f} {t} {ac} (t1 : nat) (t2 : nat) (pairs : list
                      | _,_ => None
                      end
     | AbsEmpty => Some AbsEmpty
-    | AbsLeaf i l => match (fix go (l : list (@absExp ev eq f)) :=
+    | AbsLeaf i l => match (fix go (l : list absExp) :=
                               match l with
                               | nil => Some nil
                               | (f::r) => match (mapExpLeft t1 t2 pairs f,go r) with
@@ -229,15 +233,22 @@ Fixpoint mapStateLeft {ev} {eq} {f} {t} {ac} (t1 : nat) (t2 : nat) (pairs : list
  * Returned:
  *     list of bound variable pairings.
  *)
-Definition funFix {ev} {eq} {f} (x : option ((list (nat * nat)) * (list (@absExp ev eq f)) * (list (@absExp ev eq f)))) i :=
+Definition funFix (x : option ((list (nat * nat)) * (list absExp) * (list absExp))) i :=
     match x with
-    | Some (p,tl1,tl2) => Some (p,@AbsFun ev eq f i tl1,@AbsFun ev eq f i tl2)
+    | Some (p,tl1,tl2) => Some (p,AbsFun i tl1,AbsFun i tl2)
     | None => None
     end.
 
-Fixpoint match_expression {ev} {eq} {f} (equivl : list (list (@absExp ev eq f))) (equivr : list (list (@absExp ev eq f))) (limit1 : nat) (limit2 : nat) (e1 : @absExp ev eq f) (e2 : @absExp ev eq f) (pairs : list (nat * nat)) : option ((list (nat * nat)) * (@absExp ev eq f) * (@absExp ev eq f)) :=
+
+Fixpoint push_pairs (l : list (nat * nat)) :=
+    match l with
+    | ((a,b)::r) => (((S a),(S b))::(push_pairs r))
+    | nil => ((0,0)::nil)
+    end.
+
+Fixpoint match_expression (equivl : list (list absExp)) (equivr : list (list absExp)) (limit1 : nat) (limit2 : nat) (e1 : absExp) (e2 : absExp) (pairs : list (nat * nat)) : option ((list (nat * nat)) * absExp * absExp) :=
     match (e1,e2) with
-    | (AbsConstVal v1,AbsConstVal v2) => if @beq_val ev eq v1 v2 then Some (pairs,AbsConstVal v1,AbsConstVal v2) else None
+    | (AbsConstVal v1,AbsConstVal v2) => if beq_val v1 v2 then Some (pairs,AbsConstVal v1,AbsConstVal v2) else None
     | (AbsVar v1,AbsVar v2) => if beq_id v1 v2 then (Some (pairs,AbsVar v1, AbsVar v2)) else
                                    match equiv_absExp (AbsVar v1) (AbsVar v2) equivl equivr with
                                    | Some t => Some (pairs,t,t)
@@ -282,9 +293,9 @@ Fixpoint match_expression {ev} {eq} {f} (equivl : list (list (@absExp ev eq f)))
  * Returned:
  *     list of bound variable pairings.
  *)
-Definition build_leaf {ev} {eq} {f} {t} {ac} (x : option ((list (nat * nat)) * (list (@absExp ev eq f)) * (list (@absExp ev eq f)))) i :=
+Definition build_leaf (x : option ((list (nat * nat)) * (list absExp) * (list absExp))) i :=
     match x with
-    | Some (p,l1,l2) => Some (p,@AbsLeaf ev eq f t ac i l1,@AbsLeaf ev eq f t ac i l2)
+    | Some (p,l1,l2) => Some (p,AbsLeaf i l1,AbsLeaf i l2)
     | None => None
     end.
 
@@ -293,7 +304,7 @@ Definition build_leaf {ev} {eq} {f} {t} {ac} (x : option ((list (nat * nat)) * (
                      ii
                      (el : option ((list (nat * nat)) * (list (@absExp ev eq f)) * (list (@absExp ev eq f))))*)
 
-Fixpoint match_state {ev} {eq} {f} {t} {ac} (limit1 : nat) (limit2 : nat) (pairs : list (nat * nat)) (equivl : list (list (@absExp ev eq f))) (equivr : list (list (@absExp ev eq f))) (l : @absState ev eq f t ac) (r : @absState ev eq f t ac) : option ((list (nat * nat)) * (@absState ev eq f t ac) * (@absState ev eq f t ac)) :=
+Fixpoint match_state (limit1 : nat) (limit2 : nat) (pairs : list (nat * nat)) (equivl : list (list absExp)) (equivr : list (list absExp)) (l : absState) (r : absState) : option ((list (nat * nat)) * absState * absState) :=
    match (l,r) with
     | (AbsStar l1 l2,AbsStar r1 r2) => match match_state limit1 limit2 pairs equivl equivr l1 r1 with
                                              | Some (p,tl1,tr1) => match match_state limit1 limit2 p equivl equivr l2 r2 with
@@ -311,27 +322,27 @@ Fixpoint match_state {ev} {eq} {f} {t} {ac} (limit1 : nat) (limit2 : nat) (pairs
                                            end
     | (AbsEmpty,AbsEmpty) => Some (pairs,AbsEmpty,AbsEmpty)
     | (AbsExists e1 s1,AbsExists e2 s2) => match match_expression equivl equivr limit1 limit2 e1 e2 pairs with
-                                           | Some (r,re1,re2) => match match_state (limit1+1) (limit2+1) ((limit1,limit2)::r) equivl equivr s1 s2 with
+                                           | Some (r,re1,re2) => match match_state (limit1+1) (limit2+1) (push_pairs r) equivl equivr s1 s2 with
                                                                  | Some (p,rs1,rs2) => Some (strip_pair limit1 limit2 p,AbsExists re1 rs1,AbsExists re2 rs2)
                                                                  | None => None
                                                                  end
                                            | None => None
                                            end
     | (AbsAll e1 s1,AbsAll e2 s2) => match match_expression equivl equivr limit1 limit2 e1 e2 pairs with
-                                     | Some (r,re1,re2) => match match_state (limit1+1) (limit2+1) ((limit1,limit2)::r) equivl equivr s1 s2 with
+                                     | Some (r,re1,re2) => match match_state (limit1+1) (limit2+1) (push_pairs r) equivl equivr s1 s2 with
                                                            | Some (p,rs1,rs2) => Some (strip_pair limit1 limit2 p,AbsAll re1 rs1,AbsAll re2 rs2)
                                                            | None => None
                                                            end
                                      | None => None
                                      end
     | (AbsEach e1 s1,AbsEach e2 s2) => match match_expression equivl equivr limit1 limit2 e1 e2 pairs with
-                                       | Some (r,re1,re2) => match match_state (limit1+1) (limit2+1) ((limit1,limit2)::r) equivl equivr s1 s2 with
+                                       | Some (r,re1,re2) => match match_state (limit1+1) (limit2+1) (push_pairs r) equivl equivr s1 s2 with
                                                              | Some (p,rs1,rs2) => Some (strip_pair limit1 limit2 p,AbsEach re1 rs1,AbsEach re2 rs2)
                                                              | None => None
                                                              end
                                        | None => None
                                        end
-    | (AbsExistsT s1,AbsExistsT s2) => match match_state (limit1+1) (limit2+1) ((limit1,limit2)::pairs) equivl equivr s1 s2 with
+    | (AbsExistsT s1,AbsExistsT s2) => match match_state (limit1+1) (limit2+1) (push_pairs pairs) equivl equivr s1 s2 with
                                        | Some (p,rs1,rs2) => Some (strip_pair limit1 limit2 p,AbsExistsT rs1,AbsExistsT rs2)
                                        | None => None
                                        end
@@ -377,9 +388,9 @@ Fixpoint match_state {ev} {eq} {f} {t} {ac} (limit1 : nat) (limit2 : nat) (pairs
  * Returned:
  *     list of bound variable pairings.
  *)
-Fixpoint match_expression_ni {ev} {eq} {f} (equivl : list (list (@absExp ev eq f))) (equivr : list (list (@absExp ev eq f))) (limit1 : nat) (limit2 : nat) (e1 : @absExp ev  eq f) (e2 : @absExp ev eq f) (pairs : list (nat * nat)) : option ((list (nat * nat)) * (@absExp ev eq f) * (@absExp ev eq f)) :=
+Fixpoint match_expression_ni (equivl : list (list absExp)) (equivr : list (list absExp)) (limit1 : nat) (limit2 : nat) (e1 : absExp) (e2 : absExp) (pairs : list (nat * nat)) : option ((list (nat * nat)) * absExp * absExp) :=
     match (e1,e2) with
-    | (AbsConstVal v1,AbsConstVal v2) => if @beq_val ev eq v1 v2 then Some (pairs,AbsConstVal v1,AbsConstVal v2) else None
+    | (AbsConstVal v1,AbsConstVal v2) => if beq_val v1 v2 then Some (pairs,AbsConstVal v1,AbsConstVal v2) else None
     | (AbsVar v1,AbsVar v2) => if beq_id v1 v2 then (Some (pairs,AbsVar v1, AbsVar v2)) else
                                    match equiv_absExp (AbsVar v1) (AbsVar v2) equivl equivr with
                                    | Some t => Some (pairs,t,t)
@@ -420,7 +431,7 @@ Fixpoint match_expression_ni {ev} {eq} {f} (equivl : list (list (@absExp ev eq f
  * Returned:
  *     list of bound variable pairings.
  *)
-Fixpoint match_state_ni {ev} {eq} {f} {t} {ac} (limit1 : nat) (limit2 : nat) (pairs : list (nat * nat)) (equivl : list (list (@absExp ev eq f))) (equivr : list (list (@absExp ev eq f))) (l : @absState ev eq f t ac) (r : @absState ev eq f t ac) : option ((list (nat * nat)) * (@absState ev eq f t ac) * (@absState ev eq f t ac)) :=
+Fixpoint match_state_ni (limit1 : nat) (limit2 : nat) (pairs : list (nat * nat)) (equivl : list (list absExp)) (equivr : list (list absExp)) (l : absState) (r : absState) : option ((list (nat * nat)) * absState * absState) :=
     match (l,r) with
     | (AbsStar l1 l2,AbsStar r1 r2) => match match_state_ni limit1 limit2 pairs equivl equivr l1 r1 with
                                              | Some (p,tl1,tr1) => match match_state_ni limit1 limit2 p equivl equivr l2 r2 with
@@ -438,27 +449,27 @@ Fixpoint match_state_ni {ev} {eq} {f} {t} {ac} (limit1 : nat) (limit2 : nat) (pa
                                            end
     | (AbsEmpty,AbsEmpty) => Some (pairs,AbsEmpty,AbsEmpty)
     | (AbsExists e1 s1,AbsExists e2 s2) => match match_expression_ni equivl equivr limit1 limit2 e1 e2 pairs with
-                                           | Some (r,re1,re2) => match match_state_ni (limit1+1) (limit2+1) ((limit1,limit2)::r) equivl equivr s1 s2 with
+                                           | Some (r,re1,re2) => match match_state_ni (limit1+1) (limit2+1) (push_pairs r) equivl equivr s1 s2 with
                                                                  | Some (p, rs1, rs2) => Some (strip_pair limit1 limit2 p,AbsExists re1 rs1,AbsExists re2 rs2)
                                                                  | None => None
                                                                  end
                                            | None => None
                                            end
     | (AbsAll e1 s1,AbsAll e2 s2) => match match_expression_ni equivl equivr limit1 limit2 e1 e2 pairs with
-                                     | Some (r,re1,re2) => match match_state_ni (limit1+1) (limit2+1) ((limit1,limit2)::r) equivl equivr s1 s2 with
+                                     | Some (r,re1,re2) => match match_state_ni (limit1+1) (limit2+1) (push_pairs r) equivl equivr s1 s2 with
                                                            | Some (p,rs1,rs2) => Some (strip_pair limit1 limit2 p,AbsAll re1 rs1,AbsAll re2 rs2)
                                                            | None => None
                                                            end
                                      | None => None
                                      end
     | (AbsEach e1 s1,AbsEach e2 s2) => match match_expression_ni equivl equivr limit1 limit2 e1 e2 pairs with
-                                       | Some (r,re1,re2) => match match_state_ni (limit1+1) (limit2+1) ((limit1,limit2)::r) equivl equivr s1 s2 with
+                                       | Some (r,re1,re2) => match match_state_ni (limit1+1) (limit2+1) (push_pairs r) equivl equivr s1 s2 with
                                                              | Some (p,rs1,rs2) => Some (strip_pair limit1 limit2 p,AbsEach re1 rs1,AbsEach re2 rs2)
                                                              | None => None
                                                              end
                                        | None => None
                                        end
-    | (AbsExistsT s1,AbsExistsT s2) => match match_state_ni (limit1+1) (limit2+1) ((limit1,limit2)::pairs) equivl equivr s1 s2 with
+    | (AbsExistsT s1,AbsExistsT s2) => match match_state_ni (limit1+1) (limit2+1) (push_pairs pairs) equivl equivr s1 s2 with
                                        | Some (p,rs1,rs2) => Some (strip_pair limit1 limit2 p, AbsExistsT rs1, AbsExistsT rs2)
                                        | None => None
                                        end
@@ -490,7 +501,7 @@ Fixpoint match_state_ni {ev} {eq} {f} {t} {ac} (limit1 : nat) (limit2 : nat) (pa
  *   #3 : absState - output of the original state where that component is
  *                   replaced with EmptyFun
  *)
-Inductive spickElement {ev} {eq} {f} {t} {ac} : @absState ev eq f t ac -> @absState ev eq f t ac -> @absState ev eq f t ac -> Prop :=
+Inductive spickElement : absState -> absState -> absState -> Prop :=
   | PESComposeLeft : forall l r e l',
                     spickElement l e l' ->
                     spickElement (AbsStar l r) e (AbsStar l' r)
@@ -515,6 +526,75 @@ Ltac solveSPickElement :=
             (eapply PESOR)].
 
 (*
+ * Pick a component out of a state (not necessarily implied true by its position)
+ *
+ * Parameters:
+ *   #1 : absState - input of the state to find the element in
+ *   #2 : absState - output of the component
+ *   #3 : absState - output of the original state where that component is
+ *                   replaced with EmptyFun
+ *)
+Inductive fpickElement : absState -> absState -> absState -> Prop :=
+  | PEFComposeLeft : forall l r e l',
+                    fpickElement l e l' ->
+                    fpickElement (AbsStar l r) e (AbsStar l' r)
+  | PEFComposeRight : forall l r e r',
+                     fpickElement r e r' ->
+                     fpickElement (AbsStar l r) e (AbsStar l r')
+  | PEFUpdState1 : forall l m r e l',
+                    fpickElement l e l' ->
+                    fpickElement (AbsUpdState l m r) e (AbsUpdState l' m r)
+  | PEFUpdState2 : forall l m r e m',
+                    fpickElement m e m' ->
+                    fpickElement (AbsUpdState l m r) e (AbsUpdState l m' r)
+  | PEFUpdState3 : forall l m r e r',
+                    fpickElement r e r' ->
+                    fpickElement (AbsUpdState l m r) e (AbsUpdState l m r')
+  | PEFMagicWandLeft : forall l r e l',
+                       fpickElement l e l' ->
+                       fpickElement (AbsMagicWand l r) e (AbsMagicWand l' r)
+  | PEFMagicWandRight : forall l r e r',
+                        fpickElement r e r' ->
+                        fpickElement (AbsMagicWand l r) e (AbsMagicWand l r')
+  | PEFOrComposeLeft : forall l r e l',
+                       fpickElement l e l' ->
+                       fpickElement (AbsOrStar l r) e (AbsOrStar l' r)
+  | PEFOrComposeRight : forall l r e r',
+                        fpickElement r e r' ->
+                        fpickElement (AbsOrStar l r) e (AbsOrStar l r')
+  (*| PEFUpdateVar : forall i e s v s',
+                        fpickElement s e s' ->
+                        fpickElement (AbsUpdateVar s i v) e (AbsUpdateVar s' i v)
+  | PEFUpdateLoc : forall i e s v s',
+                        fpickElement s e s' ->
+                        fpickElement (AbsUpdateLoc s i v) e (AbsUpdateLoc s' i v)
+  | PEFUpdateWithLoc : forall i e s v s',
+                        fpickElement s e s' ->
+                        fpickElement (AbsUpdateWithLoc s i v) e (AbsUpdateWithLoc s' i v)*)
+  | PEFAll : forall e p,
+             fpickElement (AbsAll e p) (AbsAll e p) AbsEmpty
+  | PEFEach : forall e p,
+             fpickElement (AbsEach e p) (AbsEach e p) AbsEmpty
+  | PEFR : forall i el,
+           fpickElement (AbsLeaf i el) (AbsLeaf i el) AbsEmpty.
+
+Ltac solveFPickElement :=
+     solve [(eapply PEFComposeLeft;solveFPickElement) |
+            (eapply PEFComposeRight;solveFPickElement) |
+            (eapply PEFMagicWandLeft;solveFPickElement) |
+            (eapply PEFMagicWandRight;solveFPickElement) |
+            (eapply PEFOrComposeLeft;solveFPickElement) |
+            (eapply PEFOrComposeRight;solveFPickElement) |
+            (eapply PEFUpdState1;solveFPickElement) |
+            (eapply PEFUpdState2;solveFPickElement) |
+            (eapply PEFUpdState3;solveFPickElement) |
+            (*(eapply PEFUpdateVar;solveFPickElement) |
+            (eapply PEFUpdateLoc;solveFPickElement) |
+            (eapply PEFUpdateWithLoc;solveFPickElement) |*)
+            (eapply PEFAll) |
+            (eapply PEFEach) |
+            (eapply PEFR)].
+(*
  * Pick a component out of a state
  *
  * Parameters:
@@ -529,7 +609,7 @@ Ltac solveSPickElement :=
  *   #9 : absState - remainder of term (with picked out element removed)
  *   #10 : list (list nat) - returned pairs (with additional pairs from match_state)
  *)
-Inductive pickElement {ev} {eq} {f} {t} {ac} : @absState ev eq f t ac -> (list (nat * nat)) -> nat -> nat -> (list (list (@absExp ev eq f))) -> (list (list (@absExp ev eq f))) -> @absState ev eq f t ac -> @absState ev eq f t ac -> @absState ev eq f t ac -> (list (nat * nat)) -> Prop :=
+Inductive pickElement : absState -> (list (nat * nat)) -> nat -> nat -> (list (list absExp)) -> (list (list absExp)) -> absState -> absState -> absState -> (list (nat * nat)) -> Prop :=
   | PEComposeLeft : forall l r e e' l' vars vars' limit1 limit2 eq1 eq2,
                     pickElement l vars limit1 limit2 eq1 eq2 e e' l' vars' ->
                     pickElement (AbsStar l r) vars limit1 limit2 eq1 eq2 e e' (AbsStar l' r) vars'
@@ -564,7 +644,7 @@ Ltac solvePickElement :=
  *   #9 : absState - remainder of term (with picked out element removed)
  *   #10 : list (list nat) - returned pairs (with additional pairs from match_state)
  *)
-Inductive pickElementNi {ev} {eq} {f} {t} {ac} : @absState ev eq f t ac -> (list (nat * nat)) -> nat -> nat -> (list (list (@absExp ev eq f))) -> (list (list (@absExp ev eq f))) -> @absState ev eq f t ac -> @absState ev eq f t ac -> @absState ev eq f t ac -> (list (nat * nat)) -> Prop :=
+Inductive pickElementNi : absState -> (list (nat * nat)) -> nat -> nat -> (list (list absExp)) -> (list (list absExp)) -> absState -> absState -> absState -> (list (nat * nat)) -> Prop :=
   | PEComposeLeftNi : forall l r e e' l' vars vars' limit1 limit2 eq1 eq2,
                       pickElementNi l vars limit1 limit2 eq1 eq2 e e' l' vars' ->
                       pickElementNi (AbsStar l r) vars limit1 limit2 eq1 eq2 e e' (AbsStar l' r) vars'
@@ -592,7 +672,7 @@ Inductive pickElementNi {ev} {eq} {f} {t} {ac} : @absState ev eq f t ac -> (list
               vars''' = strip_pair limit1 limit2 vars'' ->
               pickElementNi (AbsEach tt' s') vars limit1 limit2 eq1 eq2 (AbsEach tt s) (AbsEach ttl' sl') AbsEmpty vars'''
   | PERNi : forall r r' i h h' vars vars' vars'' limit1 limit2 eq1 eq2 rl rl' hl hl' eqq1 eqq2,
-          match (@AbsLeaf ev eq f t ac i (r::h)) with
+          match (AbsLeaf i (r::h)) with
           | [a====b] => (nil,nil)
           | _ => (limit1,limit2)
           end = (eqq1,eqq2) ->   
@@ -629,16 +709,16 @@ Ltac solvePickElementNi :=
  *   #12 : absState - remainder of second term (with picked out element removed)
  *   #13 : list (list nat) - returned pairs (with additional pairs from match_state)
  *)
-Inductive pick2Rs {ev} {eq} {f} {t} {ac}: @absState ev eq f t ac ->
-                                                               @absState ev eq f t ac ->
+Inductive pick2Rs : absState ->
+                                                               absState ->
                                                                list (nat * nat) -> nat -> nat -> 
-                                                               list (list (@absExp ev eq f)) ->
-                                                               list (list (@absExp ev eq f)) ->
+                                                               list (list absExp) ->
+                                                               list (list absExp) ->
                                                                id ->
-                                                               list (@absExp ev eq f) ->
-                                                               list (@absExp ev eq f) ->
-                                                               @absState ev eq f t ac ->
-                                                               @absState ev eq f t ac ->
+                                                               list absExp ->
+                                                               list absExp ->
+                                                               absState ->
+                                                               absState ->
                                                                list (nat * nat) -> Prop :=
   | P2RComposeFirstLeft : forall a r b c d e ff g h i j k l m,
           pick2Rs a b c d e ff g h i j k l m ->
@@ -675,15 +755,15 @@ Ltac solvePick2Rs :=
  *   #11 : absState - remainder of second term (with picked out element removed)
  *   #12 : list (list nat) - returned pairs (with additional pairs from match_state)
  *)
-Inductive pick2RsNi {ev} {eq} {f} {t} {ac}: @absState ev eq f t ac ->
-                                                                 @absState ev eq f t ac ->
+Inductive pick2RsNi : absState ->
+                                                                 absState ->
                                                                  list (nat * nat) -> nat -> nat -> 
-                                                                 list (list (@absExp ev eq f)) ->
-                                                                 list (list (@absExp ev eq f)) ->
-                                                                 @absState ev eq f t ac ->
-                                                                 @absState ev eq f t ac ->
-                                                                 @absState ev eq f t ac ->
-                                                                 @absState ev eq f t ac ->
+                                                                 list (list absExp) ->
+                                                                 list (list absExp) ->
+                                                                 absState ->
+                                                                 absState ->
+                                                                 absState ->
+                                                                 absState ->
                                                                  list (nat * nat) -> Prop :=
   | P2RComposeFirstLeftNi : forall a r b c d e g h i j k l m,
           pick2RsNi a b c d e g h i j k l m ->
@@ -712,13 +792,13 @@ Ltac solvePick2RsNi :=
             (eapply P2RPickNiExists;solvePickElementNi) ||
             (eapply P2RPickNiEach;solvePickElementNi) ].
 
-Fixpoint pickElementNiF {ev} {eq} {f} {t} {ac}
-                        (x : @absState ev eq f t ac) (r : @absState ev eq f t ac)
+Fixpoint pickElementNiF
+                        (x : absState) (r : absState)
                         (mapping : list (nat * nat)) (limit1 : nat) (limit2 : nat)
-                        (equal_l : list (list (@absExp ev eq f))) (equal_r : list (list (@absExp ev eq f))) :
-                        option ((@absState ev eq f t ac) * (@absState ev eq f t ac) *
-                                (@absState ev eq f t ac) *
-                                (@absState ev eq f t ac) * (list (nat * nat))) :=
+                        (equal_l : list (list absExp)) (equal_r : list (list absExp)) :
+                        option (absState * absState *
+                                absState *
+                                absState * (list (nat * nat))) :=
     match r with
     | (a ** b) =>
         match pickElementNiF x a mapping limit1 limit2 equal_l equal_r with
@@ -755,12 +835,64 @@ Fixpoint pickElementNiF {ev} {eq} {f} {t} {ac}
            end
     end.
 
-Fixpoint pick2RsNiF {ev} {eq} {f} {t} {ac}
-                    (l : @absState ev eq f t ac) (r : @absState ev eq f t ac)
+Fixpoint pickUpdateWithLocNiF
+                        (x : absState) (r : absState)
+                        (mapping : list (nat * nat)) (limit1 : nat) (limit2 : nat)
+                        (equal_l : list (list absExp)) (equal_r : list (list absExp)) :
+                        option (absState * absState *
+                                absState *
+                                absState * (list (nat * nat))) :=
+    match r with
+    | (a ** b) =>
+        match pickUpdateWithLocNiF x a mapping limit1 limit2 equal_l equal_r with
+        | Some (s1,s2,t1,t2,p) => Some (s1,s2**b,t1,t2,p)
+        | None =>
+           match pickUpdateWithLocNiF x b mapping limit1 limit2 equal_l equal_r with
+           | Some (s1,s2,t1,t2,p) => Some (s1,a**s2,t1,t2,p)
+           | None => None
+           end
+        end
+    | AbsEmpty => None
+    | (AbsUpdateWithLoc s2 i2 f2) =>
+        match x with
+        | (AbsUpdateWithLoc s1 i1 f1) =>
+            if beq_id i1 i2 then
+                match match_expression_ni equal_l equal_r limit1 limit2 f1 f2 mapping with
+                | None => None
+                | Some (pairs,ff1,ff2) =>
+                   Some (AbsEmpty,AbsEmpty,AbsUpdateWithLoc s1 i1 f1,AbsUpdateWithLoc s2 i2 f2,pairs)
+                end
+            else None
+        | _ => None
+        end
+    | y => None
+    end.
+
+Fixpoint pick2UpdateWithLocsNiF
+                    (l : absState) (r : absState)
                     (mapping : list (nat * nat)) (limit1 : nat) (limit2 : nat)
-                    (equal_l : list (list (@absExp ev eq f))) (equal_r : list (list (@absExp ev eq f))) :
-                    option ((@absState ev eq f t ac) * (@absState ev eq f t ac) * (@absState ev eq f t ac) *
-                            (@absState ev eq f t ac) * (list (nat * nat))) :=
+                    (equal_l : list (list absExp)) (equal_r : list (list absExp)) :
+                    option (absState * absState * absState *
+                            absState * (list (nat * nat))) :=
+    match l with
+    | (a ** b) =>
+        match pick2UpdateWithLocsNiF a r mapping limit1 limit2 equal_l equal_r with
+        | Some (s1,s2,t1,t2,p) => Some (s1**b,s2,t1,t2,p)
+        | None => match pick2UpdateWithLocsNiF b r mapping limit1 limit2 equal_l equal_r with
+                  | Some (s1,s2,t1,t2,p) => Some (a**s1,s2,t1,t2,p)
+                  | None => None
+                  end
+        end
+    | AbsEmpty => None
+    | x => pickUpdateWithLocNiF x r mapping limit1 limit2 equal_l equal_r
+    end.
+
+Fixpoint pick2RsNiF
+                    (l : absState) (r : absState)
+                    (mapping : list (nat * nat)) (limit1 : nat) (limit2 : nat)
+                    (equal_l : list (list absExp)) (equal_r : list (list absExp)) :
+                    option (absState * absState * absState *
+                            absState * (list (nat * nat))) :=
     match l with
     | (a ** b) =>
         match pick2RsNiF a r mapping limit1 limit2 equal_l equal_r with
@@ -777,7 +909,7 @@ Fixpoint pick2RsNiF {ev} {eq} {f} {t} {ac}
 (*
  * Test whether an absState has only predicates left--nothing allocating heap space
  *)
-Inductive allPredicates {ev} {eq} {f} {t} {ac} : @absState ev eq f t ac -> Prop :=
+Inductive allPredicates : absState -> Prop :=
    | APCompose : forall a b,
         allPredicates a ->
         allPredicates b ->
@@ -787,6 +919,7 @@ Inductive allPredicates {ev} {eq} {f} {t} {ac} : @absState ev eq f t ac -> Prop 
         allPredicates b ->
         allPredicates (a *\/* b)
    | APPredicate : forall p, allPredicates ([p])
+   | APPath : forall a b c d e, allPredicates (Path(a,b,c,d,e))
    | APEmpty : allPredicates AbsEmpty
    | APAccumulate : forall i a b c, allPredicates (AbsAccumulate i a b c)
    | APAll : forall ttt p,
@@ -803,9 +936,9 @@ Inductive allPredicates {ev} {eq} {f} {t} {ac} : @absState ev eq f t ac -> Prop 
               allPredicates (AbsEach ttt p).
 
 
-Ltac solveAllPredicates := repeat (eapply APCompose || eapply APOrCompose || eapply APEmpty || eapply APAll || eapply APExists || eapply APExistsT || eapply APAccumulate ||eapply APPredicate || eapply APEach).
+Ltac solveAllPredicates := repeat (eapply APCompose || eapply APOrCompose || eapply APEmpty || eapply APAll || eapply APExists || eapply APPath || eapply APExistsT || eapply APAccumulate ||eapply APPredicate || eapply APEach).
 
-Fixpoint remove_top_existentials {ev} {eq} {f} {t} {ac} (s : @absState ev eq f t ac) : ((@absState ev eq f t ac) * nat) :=
+Fixpoint remove_top_existentials (s : absState) : (absState * nat) :=
     match s with
     | AbsExists l s' => match remove_top_existentials s' with
                           | (s,ln) => (s,(S ln))
@@ -816,11 +949,29 @@ Fixpoint remove_top_existentials {ev} {eq} {f} {t} {ac} (s : @absState ev eq f t
     | _ => (s,0)
     end.
 
-Fixpoint restore_top_existentials {ev} {eq} {f} {t} {ac} (s : @absState ev eq f t ac) (n : nat) : @absState ev eq f t ac :=
+Fixpoint restore_top_existentials (s : absState) (n : nat) : absState :=
     match n with
     | 0 => s
     | S n1 => AbsExistsT (restore_top_existentials s n1)
     end.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

@@ -46,9 +46,9 @@ Definition state := prod env heap.
 
 Definition empty_state : state := (empty_env,empty_heap).
 
-Definition env_p := fst.
+Definition env_p (s : state) := fst s.
 
-Definition heap_p := snd.
+Definition heap_p (s : state) := snd s.
 
 
 (* Basic operations on States *)
@@ -449,3 +449,5 @@ Inductive ceval : functions -> state -> com -> state -> result -> Prop :=
 
 
  
+
+

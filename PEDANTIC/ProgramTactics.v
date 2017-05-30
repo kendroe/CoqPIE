@@ -124,7 +124,10 @@ Ltac pcrunchStep := match goal with
                    | [ H: ceval _ _ (CSkip) _ _ |- _] => (inversion H; subst; clear H)
                    | [ |- _ ] => progress crunchStep
                    | [ |- _ ] => progress auto
-
+                   | [ |- mergeReturnStates AbsNone _ _ _ _ _ ] => eapply mergeReturnStatesTrivial1
+                   | [ |- mergeReturnStates _ AbsNone _ _ _ _ ] => eapply mergeReturnStatesTrivial2
+                   | [ |- mergeStates AbsNone _ _ ] => eapply mergeStatesTrivial1
+                   | [ |- mergeStates _ AbsNone _ ] => eapply mergeStatesTrivial2
                    | [ H: NatValue _ = NoValue |- _ ] => inversion H
                    | [ H: ListValue _ = NoValue |- _ ] => inversion H
                    | [ H: OtherValue _ = NoValue |- _ ] => inversion H
@@ -156,12 +159,57 @@ Ltac pcrunchStep := match goal with
                    | [ H: OtherValue _ = OtherValue _ |- _ ] => (inversion H;subst;clear H)
 
                    | [ |- validExpression _ _ ] => unfold validExpression
-                   | [ |- {{_}}_;_{{_,_}} ] => eapply compose
-                   | [ |- {{_}}_ ::= _{{_,_}} ] => eapply basicAssign
-                   | [ |- {{_}} (CIf _ _ _) {{_,_}} ] => eapply if_statement
-                   | [ |- {{_}} (CLoad _ _) {{_,_}} ] => eapply load;solve [(simpl;reflexivity)]
-                   | [ |- {{_}} (DELETE _,_) {{_,_}} ] => eapply @delete_thm_basic
-                   | [ |- {{_}} (SKIP) {{_,_}} ] => eapply skip_thm
+                   | [ |- {{_}}_;_{{ _ return _ with _ }} ] => eapply compose
+                   | [ |- {{_}}_ ::= _{{ _ return _ with _ }} ] => eapply assign
+                   | [ |- {{_}} (CIf _ _ _) {{ _ return _ with _ }} ] => eapply if_statement
+                   | [ |- {{_}} (CLoad _ _) {{ _ return _ with _ }} ] => eapply load;solve [(simpl;reflexivity)]
+                   | [ |- {{_}} (DELETE _,_) {{ _ return _ with _ }} ] => eapply @del_thm
+                   | [ |- {{_}} (CStore _ _) {{ _ return _ with _ }} ] => eapply @store
+                   | [ |- {{_}} (NEW _,_) {{ _ return _ with _ }} ] => eapply @new_thm
+                   | [ |- {{_}} (SKIP) {{ _ return _ with _ }} ] => eapply skip_thm
+                   | [ |- {{_}} (RETURN _) {{ _ return _ with _ }} ] => eapply return_thm
                    end.
 
 Ltac pcrunch := repeat pcrunchStep.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
